@@ -179,7 +179,13 @@ section.on{display:block}
 
 /* ---- setup / controls ---- */
 .panel{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
-.ctl{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}
+.when.actual{color:var(--teal2);font-weight:650}
+.clr{position:absolute;right:2px;top:50%;transform:translateY(-50%);width:26px;height:26px;
+  border:none;border-radius:50%;background:var(--card2);color:var(--sec);font-size:15px;
+  line-height:1;padding:0;cursor:pointer;display:none}
+.clr.show{display:block}
+.wd{position:relative}
+.ctl{position:relative;display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}
 .ctl:first-child{border-top:none}
 .ctl label{flex:1;font-size:15.5px}
 .ctl input,.ctl select{font-family:var(--f);font-size:15.5px;font-weight:600;color:var(--viol2);
@@ -394,6 +400,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl"><label for="d-slow">Your slowest taps (ms)</label><input type="number" id="d-slow" inputmode="decimal"></div>
     <div class="ctl"><label for="d-jump">Jump height (cm)</label><input type="number" id="d-jump" step="0.1" inputmode="decimal"></div>
     <div class="ctl"><label for="d-hr">Resting heart rate</label><input type="number" id="d-hr" inputmode="numeric"></div>
+    <div class="ctl"><label for="d-bed">Actual bedtime</label><input type="time" id="d-bed"></div>
     <div class="ctl"><label for="d-sleep">Hours slept</label><input type="number" id="d-sleep" step="0.1" inputmode="decimal"></div>
     <div class="ctl"><label for="d-rem">Minutes to first dream sleep</label><input type="number" id="d-rem" inputmode="numeric"></div>
     <div class="fl">Training yesterday</div><div class="sg" id="d-tload"></div>
@@ -487,7 +494,7 @@ function pick(rows,dk){
   return Object.keys(m).map(function(k){return m[k];});
 }
 function dayToRow(r){ return stamp({
-  log_date:r.date, day_index:r.day, session_date:r.sessionDate||null,
+  log_date:r.date, day_index:r.day, session_date:r.sessionDate||null, bedtime:r.bedtime||null,
   pvt_mean_ms:r.pvtRT, pvt_slow10_ms:r.pvtSlow, jump_cm:r.jump, resting_hr:r.restHR,
   sleep_hrs:r.sleep, rem_latency_min:r.rem, train_load:r.trainLoad, top_set:r.topSet,
   mood:r.mood, energy:r.energy, motivation:r.motivation, libido:r.libido, notes:r.notes }); }
@@ -496,6 +503,7 @@ function rowToDay(x){ return {
   uid:x.user_id, secondHand:x.second_hand, at:x.updated_at||x.created_at,
   pvtRT:x.pvt_mean_ms, pvtSlow:x.pvt_slow10_ms, jump:x.jump_cm, restHR:x.resting_hr,
   sleep:x.sleep_hrs, rem:x.rem_latency_min, trainLoad:x.train_load, topSet:x.top_set,
+  bedtime:x.bedtime?String(x.bedtime).slice(0,5):'',
   mood:x.mood, energy:x.energy, motivation:x.motivation, libido:x.libido, notes:x.notes }; }
 function setupToRow(o){ return stamp({
   session_date:o.date, start_time:o['c-t0']||null,
@@ -541,9 +549,16 @@ function onset(off,veh){
   return off+(ONSET[veh]||100)+r;
 }
 function lands(off,veh){ return onset(off,veh); }
+/* peak, in planned-offset space, but measured from whichever doses you have
+   actually taken — so a dose an hour late pushes the whole night back */
 function peak(){
-  var a=onset(0,$('c-v1').value), b=onset(60,$('c-v2').value);
-  return Math.round((Math.max(a,b)+60)/15)*15;
+  var t0=mins($('c-t0').value);
+  if(t0===null){ var a0=onset(0,$('c-v1').value), b0=onset(60,$('c-v2').value);
+                 return Math.round((Math.max(a0,b0)+60)/15)*15; }
+  var lag1=onset(0,$('c-v1').value)-0, lag2=onset(60,$('c-v2').value)-60;
+  var a=absMin(0)+lag1, b=absMin(60)+lag2;
+  var abs=Math.max(a,b)+60;
+  return Math.round((abs-t0-drift())/15)*15;
 }
 function mins(s){ if(!s) return null; var p=s.split(':'); return (+p[0])*60+(+p[1]); }
 function bumpOff(){
@@ -552,15 +567,41 @@ function bumpOff(){
   var d=b-a; if(d<0) d+=1440; return d;
 }
 function clock(off){
-  var t0=mins($('c-t0').value); if(t0===null||off===null) return '—';
-  var m=((t0+off)%1440+1440)%1440, h=Math.floor(m/60), mm=m%60;
+  var am=absMin(off); if(am===null) return '—';
+  var m=((am)%1440+1440)%1440, h=Math.floor(m/60), mm=m%60;
   var ap=h>=12?'PM':'AM', hh=h%12||12;
   return hh+':'+(mm<10?'0':'')+mm+' '+ap;
 }
+/* Every check-off stores the moment you tapped it. Items you have already taken
+   become anchors: later items shift by the real drift, and planned times stop
+   mattering once an actual exists. Changing a planned time never touches them. */
+function ckAt(id){ var c=checks[key()]||{}; return c[id]||null; }
+function minOfDay(iso){ var d=new Date(iso); return d.getHours()*60+d.getMinutes(); }
+function anchors(){
+  var a=[], A=[['dose1',0],['dose2',60],['bump',bumpOff()]];
+  A.forEach(function(p){
+    var t=ckAt(p[0]);
+    if(t&&p[1]!==null&&p[1]!==undefined) a.push([p[1],minOfDay(t)]);
+  });
+  return a.sort(function(x,y){return x[0]-y[0];});
+}
+/* absolute minute-of-day for a planned offset, corrected by the latest actual */
+function absMin(off){
+  var t0=mins($('c-t0').value);
+  if(t0===null||off===null||off===undefined) return null;
+  var a=anchors(), best=null;
+  for(var i=0;i<a.length;i++){ if(a[i][0]<=off) best=a[i]; }
+  return best ? best[1]+(off-best[0]) : t0+off;
+}
+function drift(){
+  var a=anchors(), t0=mins($('c-t0').value);
+  if(!a.length||t0===null) return 0;
+  var L=a[a.length-1]; return L[1]-(t0+L[0]);
+}
 function eventDate(off){
-  var t0=mins($('c-t0').value); if(t0===null||!$('c-date').value) return null;
+  var am=absMin(off); if(am===null||!$('c-date').value) return null;
   var d=new Date($('c-date').value+'T00:00:00');
-  d.setMinutes(d.getMinutes()+t0+(off||0)); return d;
+  d.setMinutes(d.getMinutes()+am); return d;
 }
 function PRE(){ return [
  {id:'gf',off:-60,n:'Grapefruit juice',d:'10 fl oz if you are over 180 lb, 16 fl oz if under. Diluted is fine — finish all of it.'},
@@ -811,7 +852,16 @@ function rows(target,list,timed,count){
     var rail=el('div','rail'); var node=el('div','node','&#10003;'); rail.appendChild(node);
     rail.appendChild(el('div','wire')); ev.appendChild(rail);
     var card=el('div','card');
-    if(timed) card.appendChild(el('div','when',e.off===null?'At jaw onset':clock(e.off)));
+    if(timed){
+      var at=ckAt(e.id);
+      if(at){
+        var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
+        var w=el('div','when actual','Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm+' '+(h>=12?'PM':'AM'));
+        card.appendChild(w);
+      } else {
+        card.appendChild(el('div','when',e.off===null?'At jaw onset':clock(e.off)));
+      }
+    }
     card.appendChild(el('div','what',e.n));
     if(e.d) card.appendChild(el('div','why',e.d));
     var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
@@ -1023,13 +1073,13 @@ function val(i){ var e=$(i); return e.value===''?null:e.value; }
 function num(i){ var v=val(i); return v===null?null:Number(v); }
 function setv(i,v){ $(i).value=(v===null||v===undefined)?'':v; }
 function setp(i,v){ picks[i]=(v===null||v===undefined||v==='')?null:String(v); paint(i); }
-var DIN=['d-rt','d-slow','d-jump','d-hr','d-sleep','d-rem','d-set','d-notes'];
+var DIN=['d-rt','d-slow','d-jump','d-hr','d-bed','d-sleep','d-rem','d-set','d-notes'];
 var DPK=['d-day','d-tload','d-mood','d-energy','d-motiv','d-libido'];
 DIN.forEach(function(i){ $(i).addEventListener('input',function(){dirtyD=true;}); });
 function readDaily(){
   function p(i){ return picks[i]?Number(picks[i]):null; }
   return {date:val('d-date'),day:picks['d-day'],pvtRT:num('d-rt'),pvtSlow:num('d-slow'),
-    jump:num('d-jump'),restHR:num('d-hr'),sleep:num('d-sleep'),rem:num('d-rem'),
+    jump:num('d-jump'),restHR:num('d-hr'),bedtime:val('d-bed'),sleep:num('d-sleep'),rem:num('d-rem'),
     trainLoad:picks['d-tload'],topSet:val('d-set'),mood:p('d-mood'),energy:p('d-energy'),
     motivation:p('d-motiv'),libido:p('d-libido'),notes:val('d-notes')};
 }
@@ -1044,6 +1094,7 @@ function loadDaily(){
   $('ddel').style.display=r?'block':'none';
   if(!r){ DIN.forEach(function(i){$(i).value='';}); DPK.forEach(function(i){setp(i,null);}); return; }
   setv('d-rt',r.pvtRT); setv('d-slow',r.pvtSlow); setv('d-jump',r.jump); setv('d-hr',r.restHR);
+  setv('d-bed',r.bedtime);
   setv('d-sleep',r.sleep); setv('d-rem',r.rem); setv('d-set',r.topSet); setv('d-notes',r.notes);
   setp('d-day',r.day); setp('d-tload',r.trainLoad); setp('d-mood',r.mood);
   setp('d-energy',r.energy); setp('d-motiv',r.motivation); setp('d-libido',r.libido);
@@ -1087,7 +1138,7 @@ dd.onclick=function(){
 
 /* ---------- record ---------- */
 var DCOL=[['date','date'],['person','who'],['day','day'],['sessionDate','session'],['pvtRT','rt'],
- ['pvtSlow','slow10'],['jump','jump'],['sleep','sleep'],['rem','rem'],['restHR','hr'],
+ ['pvtSlow','slow10'],['jump','jump'],['sleep','sleep'],['rem','rem'],['restHR','hr'],['bedtime','bedtime'],
  ['trainLoad','train'],['mood','mood'],['energy','enrg'],['motivation','motv'],['libido','libido'],
  ['topSet','top set'],['notes','notes']];
 var METRICS=[['pvtRT','Reaction','lower'],['pvtSlow','Slowest 10%','lower'],['jump','Jump','higher'],
@@ -1358,8 +1409,39 @@ $('g-up').onclick=async function(){
   SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ UID=null; ME=null; COUPLE=null; PEOPLE=[]; who=null; gate(true,''); } });
 })();
 
+
+/* ---------- clear buttons ---------- */
+function addClears(){
+  var sel='.ctl input, .wd input, .wd textarea';
+  Array.prototype.forEach.call(document.querySelectorAll(sel),function(inp){
+    if(inp.dataset.clr) return;
+    inp.dataset.clr='1';
+    var host=inp.parentNode;
+    if(getComputedStyle(host).position==='static') host.style.position='relative';
+    var b=document.createElement('button');
+    b.type='button'; b.className='clr'; b.innerHTML='&times;';
+    b.setAttribute('aria-label','Clear '+(inp.id||'field'));
+    var pad = inp.tagName==='TEXTAREA' ? 0 : 30;
+    if(pad) inp.style.paddingRight=pad+'px';
+    if(inp.tagName==='TEXTAREA'){ b.style.top='16px'; b.style.transform='none'; }
+    function sync(){ b.classList.toggle('show', !!inp.value); }
+    b.onclick=function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      inp.value='';
+      inp.dispatchEvent(new Event('input',{bubbles:true}));
+      inp.dispatchEvent(new Event('change',{bubbles:true}));
+      sync(); inp.focus();
+    };
+    inp.addEventListener('input',sync);
+    inp.addEventListener('change',sync);
+    host.appendChild(b); sync();
+  });
+}
+addClears();
+document.addEventListener('input',function(){ addClears(); });
+
 /* ---------- auto-update ---------- */
-var BUILD='20261121-161511';
+var BUILD='20261121-163835';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
