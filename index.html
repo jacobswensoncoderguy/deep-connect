@@ -1,0 +1,1239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Deep Connect">
+<meta name="application-name" content="Deep Connect">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0B14">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+<link rel="manifest" href="manifest.json">
+<title>Deep Connect</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A0B14; --bg2:#0E1020; --card:#171A2B; --card2:#1F2338;
+  --ink:#F4F5FB; --sec:#9BA0BF; --dim:#666C8C; --line:#262B42;
+  --amber1:#F59E0B; --amber2:#FBBF24;
+  --viol1:#7C5CFF; --viol2:#E056A0;
+  --teal1:#14B8A6; --teal2:#34D399;
+  --glow1:rgba(124,92,255,.20); --glow2:rgba(20,184,166,.14);
+  --blue1:#3B82F6; --blue2:#22D3EE;
+  --red:#F4556B;
+  --f:'Sora',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg)}
+body{color:var(--ink);font-family:var(--f);font-size:16px;line-height:1.5;
+  max-width:540px;margin:0 auto;padding:0 18px 100px;-webkit-font-smoothing:antialiased;
+  font-variant-numeric:tabular-nums}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(900px 480px at 88% -8%, var(--glow1), transparent 62%),
+    radial-gradient(760px 420px at 4% 102%, var(--glow2), transparent 60%),
+    var(--bg)}
+
+/* Jake — cooler, harder: steel into cyan */
+body[data-u="Jake"]{
+  --viol1:#3F6FF0; --viol2:#22D3EE;
+  --teal1:#0EA47F; --teal2:#2BD4A0;
+  --blue1:#3F6FF0; --blue2:#22D3EE;
+  --amber1:#D98824; --amber2:#F0B041;
+  --glow1:rgba(63,111,240,.22); --glow2:rgba(34,211,238,.12);
+  --bg:#080A12; --bg2:#0C1020; --card:#141A2B; --card2:#1C2438; --line:#232D47;
+}
+/* Abbie — warmer, softer: rose into blush */
+body[data-u="Abbie"]{
+  --viol1:#D14A8E; --viol2:#F2A2C0;
+  --teal1:#2FB89A; --teal2:#6EE7B7;
+  --blue1:#B957C9; --blue2:#F2A2C0;
+  --amber1:#E0954A; --amber2:#F7C681;
+  --glow1:rgba(209,74,142,.22); --glow2:rgba(247,198,129,.12);
+  --bg:#120A10; --bg2:#1A0E18; --card:#241724; --card2:#2E1E2D; --line:#3A2739;
+}
+:focus-visible{outline:2.5px solid var(--viol1);outline-offset:3px;border-radius:10px}
+
+/* ---- header ---- */
+.top{display:flex;align-items:center;gap:14px;padding:24px 0 14px}
+.ring{flex:0 0 52px;height:52px;position:relative}
+.ring svg{transform:rotate(-90deg);display:block}
+.ring .s1{stop-color:var(--teal1)}
+.ring .s2{stop-color:var(--teal2)}
+.ring circle:first-of-type{stroke:var(--line)}
+.ring span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:600;letter-spacing:-.02em}
+.top .ttl{flex:1;min-width:0}
+.top h1{font-size:22px;font-weight:700;letter-spacing:-.03em;margin:0;line-height:1.15}
+.top .sub{font-size:13px;color:var(--sec);margin-top:2px}
+.people{display:flex;gap:9px;margin:2px 0 14px}
+.people button{flex:1;font-family:var(--f);font-size:16px;font-weight:700;letter-spacing:-.02em;
+  color:var(--sec);background:var(--card);border:1.5px solid var(--line);border-radius:14px;
+  padding:14px 0;position:relative}
+.people button[data-c="Jake"].on,.people button[data-w="Jake"].on{color:#050810;border-color:transparent;
+  background:linear-gradient(135deg,#3F6FF0,#22D3EE)}
+.people button[data-c="Abbie"].on,.people button[data-w="Abbie"].on{color:#1A0A14;border-color:transparent;
+  background:linear-gradient(135deg,#D14A8E,#F2A2C0)}
+.people button::after{content:"";position:absolute;left:50%;transform:translateX(-50%);
+  bottom:-9px;width:0;height:0;border:5px solid transparent}
+.people button.on::after{border-top-color:var(--viol1)}
+
+/* ---- tabs ---- */
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 0 2px;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;font-family:var(--f);font-size:14px;font-weight:600;letter-spacing:-.01em;
+  color:var(--sec);background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:10px 17px}
+.tabs button.on{color:#0A0B14;border-color:transparent;
+  background:linear-gradient(135deg,var(--viol1),var(--viol2))}
+.tabs button[data-v="recovery"].on{background:linear-gradient(135deg,var(--teal1),var(--teal2))}
+.tabs button[data-v="tests"].on{background:linear-gradient(135deg,var(--blue1),var(--blue2))}
+
+section{display:none;padding-top:20px}
+section.on{display:block}
+
+/* ---- hero ---- */
+.hero{border-radius:22px;padding:22px;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--viol1),var(--viol2))}
+.hero::after{content:"";position:absolute;right:-50px;top:-70px;width:200px;height:200px;
+  border-radius:50%;background:rgba(255,255,255,.13)}
+.hero .k{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.72)}
+.hero .v{font-size:25px;font-weight:700;letter-spacing:-.03em;margin:7px 0 3px;
+  line-height:1.2;color:#fff;position:relative}
+.hero .cd{font-size:34px;font-weight:700;letter-spacing:-.035em;color:#fff;line-height:1.1}
+.hero .cd small{font-size:14px;font-weight:500;color:rgba(255,255,255,.75);letter-spacing:0}
+.hero.idle{background:var(--card);border:1px solid var(--line)}
+.hero.idle::after{display:none}
+.hero.idle .k{color:var(--dim)}
+.hero.idle .v,.hero.idle .cd{color:var(--ink)}
+
+/* ---- section label ---- */
+.lab{display:flex;align-items:center;gap:10px;margin:30px 0 14px}
+.lab i{flex:0 0 auto;width:30px;height:4px;border-radius:99px;
+  background:linear-gradient(90deg,var(--viol1),var(--viol2))}
+.lab[data-p="pre"] i{background:linear-gradient(90deg,var(--amber1),var(--amber2))}
+.lab[data-p="rec"] i{background:linear-gradient(90deg,var(--teal1),var(--teal2))}
+.lab[data-p="test"] i{background:linear-gradient(90deg,var(--blue1),var(--blue2))}
+.lab span{font-size:13px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--sec)}
+.lab em{margin-left:auto;font-style:normal;font-size:12.5px;color:var(--dim);font-weight:500}
+
+/* ---- timeline ---- */
+.tl{position:relative}
+.ev{display:flex;gap:14px;position:relative}
+.ev .rail{flex:0 0 26px;display:flex;flex-direction:column;align-items:center;padding-top:16px}
+.ev .node{width:26px;height:26px;border-radius:50%;background:var(--card2);
+  border:2px solid var(--line);display:flex;align-items:center;justify-content:center;
+  font-size:13px;color:transparent;flex:0 0 auto;z-index:1;transition:background .2s,border-color .2s}
+.ev .wire{flex:1;width:2px;background:var(--line);margin:4px 0 -4px;min-height:8px}
+.ev:last-child .wire{display:none}
+.ev .card{flex:1;min-width:0;background:var(--card);border:1px solid var(--line);
+  border-radius:16px;padding:14px 16px;margin-bottom:10px}
+.ev .when{font-size:12px;font-weight:600;letter-spacing:.05em;color:var(--dim);text-transform:uppercase}
+.ev .what{font-size:16.5px;font-weight:600;letter-spacing:-.015em;margin-top:3px;line-height:1.3}
+.ev .why{font-size:13.5px;color:var(--sec);margin-top:5px;line-height:1.4}
+.ev.pre .node{border-color:rgba(245,158,11,.5)}
+.ev.now .card{border-color:transparent;
+  background:linear-gradient(135deg,rgba(124,92,255,.28),rgba(224,86,160,.18)),var(--card)}
+.ev.now .when{color:var(--viol2)}
+.ev.now .node{border-color:var(--viol1);box-shadow:0 0 0 5px rgba(124,92,255,.17)}
+.ev.done .node{background:linear-gradient(135deg,var(--teal1),var(--teal2));
+  border-color:transparent;color:#07140F}
+.ev.done .wire{background:linear-gradient(180deg,var(--teal1),var(--line))}
+.ev.done .card{opacity:.44}
+.ev.key .what{font-size:18px;font-weight:700}
+.infobar{display:flex;align-items:center;gap:10px;margin-top:11px;
+  padding-top:11px;border-top:1px solid var(--line)}
+.badge{flex:1;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;
+  letter-spacing:.03em;text-transform:uppercase;color:var(--dim)}
+.badge i{width:7px;height:7px;border-radius:50%;flex:0 0 auto}
+.more{flex:0 0 auto;font-family:var(--f);font-size:12.5px;font-weight:600;color:var(--viol2);
+  background:none;border:none;padding:4px 0}
+.det{display:none;margin-top:12px;padding:14px;border-radius:12px;background:var(--bg2);
+  border:1px solid var(--line)}
+.det.open{display:block}
+.dl{font-size:10.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--dim);margin-top:11px}
+.dl:first-child{margin-top:0}
+.dv{font-size:13.5px;color:var(--sec);line-height:1.5;margin-top:3px}
+.sl{display:inline-block;margin-top:12px;font-size:12.5px;font-weight:600;
+  color:var(--viol2);text-decoration:none}
+.ev.done .det{display:none}
+@media (prefers-reduced-motion:reduce){.ev .node{transition:none}}
+
+/* ---- setup / controls ---- */
+.panel{background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.ctl{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}
+.ctl:first-child{border-top:none}
+.ctl label{flex:1;font-size:15.5px}
+.ctl input,.ctl select{font-family:var(--f);font-size:15.5px;font-weight:600;color:var(--viol2);
+  background:none;border:none;text-align:right;padding:0}
+.ctl input[type=number]{width:4.6em}
+.ctl input::-webkit-calendar-picker-indicator{filter:invert(.7)}
+.tg{position:relative;flex:0 0 48px;height:28px;border-radius:99px;border:none;background:var(--card2);padding:0}
+.tg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+  background:var(--dim);transition:left .18s ease,background .18s ease}
+.tg.on{background:rgba(52,211,153,.22)}
+.tg.on::after{left:23px;background:linear-gradient(135deg,var(--teal1),var(--teal2))}
+@media (prefers-reduced-motion:reduce){.tg::after{transition:none}}
+
+.sum{background:linear-gradient(135deg,rgba(124,92,255,.14),rgba(224,86,160,.09)),var(--card);
+  border:1px solid rgba(124,92,255,.3);border-radius:16px;padding:15px 17px;
+  font-size:14px;color:var(--sec);line-height:1.55;margin-top:12px}
+.sum b{color:var(--ink);font-weight:600}
+.warnbox{background:rgba(244,85,107,.09);border:1px solid rgba(244,85,107,.3);border-radius:16px;
+  padding:15px 17px;font-size:14px;color:#FFC4CD;line-height:1.55;margin-top:12px}
+.warnbox b{color:#fff;font-weight:600}
+.btn{width:100%;font-family:var(--f);font-size:16px;font-weight:600;letter-spacing:-.01em;
+  border:none;border-radius:15px;padding:16px;margin-top:16px;color:#0A0B14;
+  background:linear-gradient(135deg,var(--viol1),var(--viol2))}
+.btn.t{background:linear-gradient(135deg,var(--teal1),var(--teal2))}
+.btn.b{background:linear-gradient(135deg,var(--blue1),var(--blue2))}
+.btn.g{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.r{background:var(--card);color:var(--red);border:1px solid rgba(244,85,107,.35)}
+.hint{font-size:13.5px;color:var(--dim);line-height:1.5;margin:10px 4px 0}
+.hint b{color:var(--sec);font-weight:600}
+.msg{font-size:14px;color:var(--red);margin:10px 4px 0;display:none}
+
+/* ---- scales ---- */
+.sc{display:flex;gap:5px;padding:2px 16px 14px}
+.sc button{flex:1;font-family:var(--f);font-size:13.5px;font-weight:600;background:var(--card2);
+  border:none;border-radius:10px;color:var(--sec);padding:11px 0}
+.sc button.on{color:#0A0B14;background:linear-gradient(135deg,var(--teal1),var(--teal2))}
+.sg{display:flex;flex-wrap:wrap;gap:7px;padding:2px 16px 14px}
+.sg button{font-family:var(--f);font-size:13.5px;font-weight:600;background:var(--card2);border:none;
+  border-radius:10px;color:var(--sec);padding:10px 14px}
+.sg button.on{color:#0A0B14;background:linear-gradient(135deg,var(--teal1),var(--teal2))}
+.fl{font-size:13px;font-weight:600;color:var(--dim);padding:14px 16px 0;border-top:1px solid var(--line)}
+.panel .fl:first-child{border-top:none}
+.wd{padding:9px 16px 14px}
+.wd input,.wd textarea{width:100%;font-family:var(--f);font-size:15.5px;border:none;background:none;
+  padding:0;color:var(--ink);resize:vertical}
+.wd textarea{min-height:48px;line-height:1.5}
+
+/* ---- pvt ---- */
+#pad{height:330px;border-radius:24px;background:var(--card);border:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  position:relative;overflow:hidden;margin-top:4px}
+#pad .n{font-size:66px;font-weight:700;letter-spacing:-.045em;line-height:1;position:relative}
+#pad .c{font-size:14px;color:var(--sec);margin-top:12px;position:relative}
+#pad.fire{border-color:transparent;background:linear-gradient(135deg,var(--viol1),var(--viol2))}
+#pad.fire .n{color:#fff}
+#pad.fire .c{color:rgba(255,255,255,.78)}
+#pad.void{border-color:rgba(244,85,107,.4)}
+#pad.void .n{font-size:27px;font-weight:700;color:var(--red)}
+.read{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:11px}
+.read div{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:14px 15px}
+.read b{display:block;font-size:25px;font-weight:700;letter-spacing:-.03em;
+  background:linear-gradient(135deg,var(--blue1),var(--blue2));-webkit-background-clip:text;
+  background-clip:text;-webkit-text-fill-color:transparent}
+.read span{font-size:12px;color:var(--dim);display:block;margin-top:2px}
+
+/* ---- strips + table ---- */
+.strip{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line)}
+.strip:first-child{border-top:none}
+.strip .nm{flex:0 0 6.8em;font-size:14px;font-weight:500}
+.strip svg{flex:1;height:34px;display:block}
+.strip .bv{flex:0 0 3.4em;font-size:12.5px;color:var(--dim);text-align:right;font-weight:500}
+.scroll{overflow-x:auto;border-radius:16px;border:1px solid var(--line);background:var(--card)}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{text-align:left;padding:10px 11px;border-top:1px solid var(--line);white-space:nowrap}
+tr:first-child th{border-top:none}
+th{color:var(--dim);font-weight:600;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+td{color:var(--sec)}
+td button{background:none;border:none;color:var(--red);font-family:var(--f);font-size:12.5px;
+  font-weight:600;padding:0}
+footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0 4px}
+</style>
+</head>
+<body>
+
+<div id="gate" style="display:none;padding:40px 0">
+  <h1 style="font-size:26px;font-weight:700;letter-spacing:-.03em;margin:0 0 18px">Deep Connect</h1>
+  <div class="panel">
+    <div class="fl">Email</div><div class="wd"><input id="g-email" type="email" autocomplete="email" placeholder="you@example.com"></div>
+    <div class="fl">Password</div><div class="wd"><input id="g-pass" type="password" autocomplete="current-password" placeholder="at least 8 characters"></div>
+  </div>
+  <button class="btn" id="g-in">Sign in</button>
+  <button class="btn g" id="g-up">Create an account</button>
+  <div class="hint" id="g-msg"></div>
+</div>
+
+<div id="app" style="display:none">
+<div class="top">
+  <div class="ring">
+    <svg width="52" height="52" viewBox="0 0 52 52" aria-hidden="true">
+      <circle cx="26" cy="26" r="22" fill="none" stroke-width="5"/>
+      <circle id="arc" cx="26" cy="26" r="22" fill="none" stroke="url(#rg)" stroke-width="5"
+        stroke-linecap="round" stroke-dasharray="138.2" stroke-dashoffset="138.2"/>
+      <defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" class="s1"/><stop offset="1" class="s2"/>
+      </linearGradient></defs>
+    </svg>
+    <span id="pct">0%</span>
+  </div>
+  <div class="ttl"><h1 id="htitle">Deep Connect</h1><div class="sub" id="hsub">—</div></div>
+</div>
+
+<div id="claim" style="display:none">
+  <div class="sum"><b>Who is this account?</b> Pick once. Entries you save are signed with
+  your account, so this cannot be changed later without clearing them.</div>
+  <div class="people" role="group" aria-label="Claim your identity">
+    <button data-c="Jake">I am Jake</button><button data-c="Abbie">I am Abbie</button>
+  </div>
+  <div class="hint" id="claimerr"></div>
+</div>
+
+<div id="idbar" style="display:none">
+  <div class="people" role="group" aria-label="Whose data">
+    <button data-w="Jake">Jake</button><button data-w="Abbie">Abbie</button>
+  </div>
+  <div class="hint" id="whohint"></div>
+</div>
+
+<div class="tabs">
+  <button data-v="session" class="on">Session</button>
+  <button data-v="recovery">Recovery</button>
+  <button data-v="tests">Tests</button>
+</div>
+
+<section id="v-session" class="on">
+  <div class="hero idle" id="hero">
+    <div class="k">Next</div>
+    <div class="v" id="h-next">Set your dose time</div>
+    <div class="cd" id="h-cd">—</div>
+  </div>
+
+  <div class="lab"><i></i><span>Setup</span></div>
+  <div class="panel">
+    <div class="ctl"><label for="c-date">Session date</label><input type="date" id="c-date"></div>
+    <div class="ctl"><label for="c-t0">First dose</label><input type="time" id="c-t0" value="17:00"></div>
+    <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
+    <div class="ctl"><label for="c-v1">Dose 1 form</label><select id="c-v1">
+      <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
+    <div class="ctl"><label for="c-d2">Dose 2, +60 min</label><input type="number" id="c-d2" value="100" inputmode="numeric"></div>
+    <div class="ctl"><label for="c-v2">Dose 2 form</label><select id="c-v2">
+      <option>Gummies</option><option selected>Liquid softgel</option><option>Capsule</option></select></div>
+    <div class="ctl"><label>Bump</label><button class="tg on" id="c-bump" role="switch" aria-checked="true" aria-label="Bump"></button></div>
+    <div class="ctl" id="c-br1"><label for="c-bt">Bump at</label><input type="time" id="c-bt" value="20:00"></div>
+    <div class="ctl" id="c-br2"><label for="c-bd">Bump amount</label><input type="number" id="c-bd" value="50" inputmode="numeric"></div>
+    <div class="ctl" id="c-br3"><label for="c-vehicle">Bump form</label><select id="c-vehicle">
+      <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
+    <div class="ctl"><label>On retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
+  </div>
+  <div class="hint" id="setupstate"></div>
+  <div class="sum" id="dosesum"></div>
+  <div class="warnbox" id="gates"></div>
+
+  <div class="lab" data-p="pre"><i></i><span>Before</span><em id="n-pre"></em></div>
+  <div class="tl" id="g-pre"></div>
+  <div class="lab"><i></i><span>During</span><em id="n-peri"></em></div>
+  <div class="tl" id="g-peri"></div>
+  <div class="lab" data-p="rec"><i></i><span>Before bed</span><em id="n-bed"></em></div>
+  <div class="tl" id="g-bed"></div>
+
+  <div class="lab"><i></i><span>Alerts</span></div>
+  <div class="panel">
+    <div class="ctl"><label for="a-lead">Warn me ahead by</label><select id="a-lead">
+      <option value="0">On time</option><option value="5" selected>5 min</option>
+      <option value="10">10 min</option><option value="15">15 min</option></select></div>
+    <div class="ctl"><label>Include recovery days</label>
+      <button class="tg on" id="a-rec" role="switch" aria-checked="true" aria-label="Include recovery days"></button></div>
+  </div>
+  <button class="btn" id="a-make">Add alerts to calendar</button>
+  <div class="hint" id="a-note">Built from the times above, one notification per item. Open it and iOS fires them with the phone locked. Re-run after changing the dose time, and delete the old events first.</div>
+  <button class="btn g" id="reset">Clear today&rsquo;s check-offs</button>
+</section>
+
+<section id="v-recovery">
+  <div class="lab" data-p="rec"><i></i><span>Day after</span><em id="n-d1"></em></div>
+  <div class="tl" id="g-d1"></div>
+  <div class="lab" data-p="rec"><i></i><span>Days 2 to 10</span><em id="n-week"></em></div>
+  <div class="tl" id="g-week"></div>
+  <div class="lab" data-p="rec"><i></i><span>Peptides</span><em id="n-pep"></em></div>
+  <div class="tl" id="g-pep"></div>
+  <div class="lab" data-p="rec"><i></i><span>Training</span><em id="n-train"></em></div>
+  <div class="tl" id="g-train"></div>
+
+  <div class="lab" data-p="rec"><i></i><span>Log the day</span></div>
+  <div class="panel">
+    <div class="ctl"><label for="d-date">Date</label><input type="date" id="d-date"></div>
+    <div class="fl">Day relative to session</div><div class="sg" id="d-day"></div>
+    <div class="ctl"><label for="d-rt">Reaction, mean ms</label><input type="number" id="d-rt" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-slow">Slowest 10%</label><input type="number" id="d-slow" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-jump">Jump, cm</label><input type="number" id="d-jump" step="0.1" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-hr">Resting HR</label><input type="number" id="d-hr" inputmode="numeric"></div>
+    <div class="ctl"><label for="d-sleep">Sleep, hrs</label><input type="number" id="d-sleep" step="0.1" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-rem">Time to REM, min</label><input type="number" id="d-rem" inputmode="numeric"></div>
+    <div class="fl">Training yesterday</div><div class="sg" id="d-tload"></div>
+    <div class="fl">Mood</div><div class="sc" id="d-mood"></div>
+    <div class="fl">Energy</div><div class="sc" id="d-energy"></div>
+    <div class="fl">Motivation</div><div class="sc" id="d-motiv"></div>
+    <div class="fl">Libido</div><div class="sc" id="d-libido"></div>
+    <div class="fl">Top set today</div><div class="wd"><input id="d-set" placeholder="Incline press 225 x 8"></div>
+    <div class="fl">Notes</div><div class="wd"><textarea id="d-notes"></textarea></div>
+  </div>
+  <div class="msg" id="d-err"></div>
+  <button class="btn t" id="dsave">Save day</button>
+  <button class="btn r" id="ddel" style="display:none">Delete this entry</button>
+</section>
+
+<section id="v-tests">
+  <div class="lab" data-p="test"><i></i><span>Reaction test</span></div>
+  <div class="hint">Thirty trials, about three minutes. Wait, then tap the instant the field lights. Same time each morning, before caffeine.</div>
+  <div id="pad"><div class="n" id="padn">Ready</div><div class="c" id="padc">Tap to begin</div></div>
+  <div class="read" id="read" style="display:none">
+    <div><b id="r-mean">—</b><span>mean ms</span></div>
+    <div><b id="r-med">—</b><span>median</span></div>
+    <div><b id="r-slow">—</b><span>slowest 10%</span></div>
+    <div><b id="r-fs">—</b><span>false / void</span></div>
+  </div>
+  <div class="hint" id="r-vs" style="display:none"></div>
+  <button class="btn b" id="pvtsave" style="display:none">Carry into today&rsquo;s entry</button>
+
+  <div class="lab" data-p="test"><i></i><span>Departure from baseline</span></div>
+  <div class="panel"><div class="ctl"><label for="pick">Session</label><select id="pick"></select></div></div>
+  <div class="panel" id="strips" style="margin-top:9px"></div>
+
+  <div class="lab" data-p="test"><i></i><span>Record</span></div>
+  <div class="panel"><div class="ctl"><label id="revtxt">Your rows only</label>
+    <button class="tg" id="blind" role="switch" aria-checked="false" aria-label="Show both people"></button></div></div>
+  <div class="scroll" style="margin-top:9px"><table id="t-daily"></table></div>
+  <button class="btn g" id="copy">Copy everything as CSV</button>
+  <button class="btn r" id="signout">Sign out</button>
+  <div class="hint" id="status">Connecting&hellip;</div>
+</section>
+
+</div>
+<footer>
+  Reaction test — 30 trials, 2–10 s interval, stimulus timed after paint, no lapse threshold.
+  Jump from My Jump Lab. REM latency and resting HR from the watch.
+  Check-offs and entries are per person; rows stay separated by default.
+</footer>
+
+<script>
+const SB_URL='https://kobqqqenjdpmnvlhhlgo.supabase.co';
+const SB_KEY='sb_publishable_OqfzVMWOZjTjq-C0mdB8zQ_9e_cv-QY';
+var SB=null, UID=null, ROLE=null, roles={};
+var who='Jake', proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
+function $(i){return document.getElementById(i);}
+function el(t,c,h){var e=document.createElement(t); if(c)e.className=c; if(h!==undefined)e.innerHTML=h; return e;}
+function uidOf(role){ for(var u in roles){ if(roles[u]===role) return u; } return null; }
+function stamp(o){ o.user_id=UID; o.subject=who; o.entered_by=ROLE; o.second_hand=(who!==ROLE); return o; }
+function pick(rows,dk){
+  var m={};
+  (rows||[]).forEach(function(r){
+    var k=r.subject+'|'+r[dk], p=m[k];
+    if(!p){ m[k]=r; return; }
+    if(!r.second_hand && p.second_hand){ m[k]=r; return; }
+    if(r.second_hand && !p.second_hand) return;
+    if((r.updated_at||r.created_at||'')>(p.updated_at||p.created_at||'')) m[k]=r;
+  });
+  return Object.keys(m).map(function(k){return m[k];});
+}
+function dayToRow(r){ return stamp({
+  log_date:r.date, day_index:r.day, session_date:r.sessionDate||null,
+  pvt_mean_ms:r.pvtRT, pvt_slow10_ms:r.pvtSlow, jump_cm:r.jump, resting_hr:r.restHR,
+  sleep_hrs:r.sleep, rem_latency_min:r.rem, train_load:r.trainLoad, top_set:r.topSet,
+  mood:r.mood, energy:r.energy, motivation:r.motivation, libido:r.libido, notes:r.notes }); }
+function rowToDay(x){ return {
+  date:x.log_date, day:x.day_index, sessionDate:x.session_date, person:x.subject,
+  uid:x.user_id, secondHand:x.second_hand, at:x.updated_at||x.created_at,
+  pvtRT:x.pvt_mean_ms, pvtSlow:x.pvt_slow10_ms, jump:x.jump_cm, restHR:x.resting_hr,
+  sleep:x.sleep_hrs, rem:x.rem_latency_min, trainLoad:x.train_load, topSet:x.top_set,
+  mood:x.mood, energy:x.energy, motivation:x.motivation, libido:x.libido, notes:x.notes }; }
+function setupToRow(o){ return stamp({
+  session_date:o.date, start_time:o['c-t0']||null,
+  dose1_mg:+o['c-d1']||null, dose1_form:o['c-v1'], dose2_mg:+o['c-d2']||null, dose2_form:o['c-v2'],
+  bump:!!o.bump, bump_time:o.bump?(o['c-bt']||null):null, bump_mg:o.bump?(+o['c-bd']||null):null,
+  bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
+  days_since_last:o.gap }); }
+function rowToSetup(x){ return {
+  date:x.session_date, person:x.subject, uid:x.user_id, secondHand:x.second_hand,
+  at:x.updated_at||x.created_at, gap:x.days_since_last, stack:x.stack,
+  'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
+  'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
+  'c-bt':x.bump_time?String(x.bump_time).slice(0,5):'', 'c-bd':x.bump_mg,
+  'c-vehicle':x.bump_form, reta:x.on_reta }; }
+async function pull(){
+  if(!SB||!UID) return;
+  var a=await SB.from('day_logs').select('*');
+  var b=await SB.from('sessions').select('*');
+  var c=await SB.from('check_offs').select('*');
+  daily=pick(a.data||[],'log_date').map(rowToDay);
+  sess =pick(b.data||[],'session_date').map(rowToSetup);
+  checks={};
+  (c.data||[]).forEach(function(x){
+    var k=x.subject+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
+  loadSetup(); protocol(); if(!dirtyD) loadDaily(); render();
+}
+async function loadRoles(){
+  var r=await SB.from('profiles').select('*');
+  roles={}; (r.data||[]).forEach(function(p){ roles[p.id]=p.role; });
+  ROLE=roles[UID]||null; if(ROLE&&!proxy) who=ROLE;
+}
+/* ---------- protocol ---------- */
+/* onset minutes by vehicle, from Jake's own sessions.
+   Retatrutide delays gastric emptying of solids; a liquid largely bypasses it. */
+var ONSET={'Gummies':150,'Capsule':100,'Liquid softgel':30};
+var RETA ={'Gummies':45, 'Capsule':30, 'Liquid softgel':5};
+function onset(off,veh){
+  var r=$('c-reta').classList.contains('on')?(RETA[veh]||30):0;
+  return off+(ONSET[veh]||100)+r;
+}
+function lands(off,veh){ return onset(off,veh); }
+function peak(){
+  var a=onset(0,$('c-v1').value), b=onset(60,$('c-v2').value);
+  return Math.round((Math.max(a,b)+60)/15)*15;
+}
+function mins(s){ if(!s) return null; var p=s.split(':'); return (+p[0])*60+(+p[1]); }
+function bumpOff(){
+  var a=mins($('c-t0').value), b=mins($('c-bt').value);
+  if(a===null||b===null) return 180;
+  var d=b-a; if(d<0) d+=1440; return d;
+}
+function clock(off){
+  var t0=mins($('c-t0').value); if(t0===null||off===null) return '—';
+  var m=((t0+off)%1440+1440)%1440, h=Math.floor(m/60), mm=m%60;
+  var ap=h>=12?'PM':'AM', hh=h%12||12;
+  return hh+':'+(mm<10?'0':'')+mm+' '+ap;
+}
+function eventDate(off){
+  var t0=mins($('c-t0').value); if(t0===null||!$('c-date').value) return null;
+  var d=new Date($('c-date').value+'T00:00:00');
+  d.setMinutes(d.getMinutes()+t0+(off||0)); return d;
+}
+function PRE(){ return [
+ {id:'gf',off:-60,n:'Grapefruit juice',d:'You 10 fl oz · Abbie 16 fl oz. Diluted is fine — finish all of it.'},
+ {id:'nd',off:-60,n:'Nerve Defend ×3',d:'ALA 600 · NAC 600 · ALCAR 500 · B6. Pre-load only — peri-session coverage is the hourly doses.'},
+ {id:'tad',off:-30,n:'Tadalafil 20 mg',d:'Needs two hours to come up.'},
+ {id:'pt',off:-30,n:'PT-141 2 mg',d:'Nausea window lands well before peak.'},
+ {id:'temp',off:-30,n:'Room under 75 °F',d:'Check it. Malberg & Seiden put the protective range at 68–75.'}
+];}
+function PERI(){
+  var d1=+$('c-d1').value||0, d2=+$('c-d2').value||0, bd=+$('c-bd').value||0;
+  var v1=$('c-v1').value, v2=$('c-v2').value, veh=$('c-vehicle').value;
+  var bump=$('c-bump').classList.contains('on'), pk=peak();
+  var a=[
+   {id:'dose1',off:0,n:'Dose 1 — '+d1+' mg '+v1.toLowerCase(),d:'First effects around '+clock(onset(0,v1))+'.',key:1},
+   {id:'kiss1',off:20,n:'Kisspeptin — first',d:''},
+   {id:'dose2',off:60,n:'Dose 2 — '+d2+' mg '+v2.toLowerCase(),d:'First effects around '+clock(onset(60,v2))+'.',key:1},
+   {id:'kiss2',off:120,n:'Kisspeptin — second',d:'Short half-life, so it repeats.'}
+  ];
+  if(bump) a.push({id:'bump',off:bumpOff(),n:'Bump — '+bd+' mg '+veh.toLowerCase(),
+    d:'First effects around '+clock(onset(bumpOff(),veh))+'. On the clock, not when it fades.',key:1});
+  for(var i=0;i<4;i++) a.push({id:'ox'+i,off:pk+i*60,n:'ALA 300 mg + vitamin C 250 mg',
+    d:i===0?'First of four. Both clear in under an hour — that is why it repeats.':''});
+  a.push({id:'mag',off:null,n:'Magnesium 200 mg',d:'At the first sign of jaw tension, whenever that is.'});
+  a.push({id:'thc',off:pk+180,n:'THC — low',d:'Descent only. Three or four second draw.',key:1});
+  a.push({id:'oxy1',off:pk+195,n:'Oxytocin — 2 pumps',d:'Slow, aimed high and lateral. Do not sniff hard.'});
+  a.push({id:'oxy2',off:pk+285,n:'Oxytocin — second round',d:''});
+  a.push({id:'stop',off:pk+300,n:'Wind down',d:'The single biggest lever on tomorrow.',key:1});
+  return a.sort(function(x,y){return (x.off===null?1e9:x.off)-(y.off===null?1e9:y.off);});
+}
+var BED=[{id:'bmag',n:'Magnesium glycinate 400 mg'},{id:'bmel',n:'Melatonin 3–5 mg'},
+ {id:'belec',n:'Electrolytes and water'},
+ {id:'bno5',n:'No 5-HTP tonight',d:'A precursor plus a releaser is the serotonin syndrome setup. Nothing until T+24 h.'}];
+var D1=[{id:'r-tyr',n:'L-tyrosine 1,000 mg',d:'Morning. Works only in a depleted state, which is now.'},
+ {id:'r-food',n:'Full breakfast with carbs'},{id:'r-elec',n:'Electrolytes · 15–20 min sunlight'},
+ {id:'r-stack',n:'Normal stack',d:'EPA · CoQ10 · multi · creatine · D3+K2'},
+ {id:'r-walk',n:'Walk only — no training'},
+ {id:'r-5htp',n:'5-HTP 100 mg + EGCG 400 mg',d:'8 PM or later. Never unpaired — without EGCG it converts in the gut.'},
+ {id:'r-pm',n:'Magnesium 400 mg · melatonin'}];
+var WEEK=[{id:'w-am',n:'Morning',d:'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax 600 mcg'},
+ {id:'w-pm',n:'Evening',d:'5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg'},
+ {id:'w-nac',n:'NAC 600 mg daily',d:'Through day 10. Glutathione takes three to four weeks to rebuild.'},
+ {id:'w-ala',n:'Drop the ALA from day 3',d:'Chronic high-dose antioxidants blunt hypertrophy adaptation.'},
+ {id:'w-stop',n:'Stop 5-HTP at day 10'},{id:'w-alc',n:'No alcohol for 7 days'}];
+var PEP=[{id:'p-bpc',n:'BPC-157 — 250–500 mcg daily',d:'Two to three weeks. Rodent data only for this use.'},
+ {id:'p-tb',n:'TB-500 — 2–5 mg weekly',d:'Split into two. Rodent only as well.'}];
+var TRAIN=[{id:'t1',n:'Day 1 — walk only'},{id:'t2',n:'Day 2 — light'},{id:'t3',n:'Day 3 — normal'}];
+
+
+/* ---------- evidence cards ----------
+   tier: M measured in humans · P mechanism, no outcome trial · A assumption · N none */
+var EV={
+ gf:{dose:'10 fl oz you · 16 fl oz Abbie, 60 min before. Diluted is fine.',
+  why:'Furanocoumarins irreversibly knock out intestinal CYP3A4, so the same milligrams produce more exposure.',
+  tier:'P',fig:'Human data exists but for other drugs — grapefruit raised felodipine AUC 93%. 5-MAPB runs through CYP1A2 and 2D6 as well as 3A4, so inhibiting 3A4 captures only part of its clearance. The size of the effect for this compound is unverified.',
+  note:'One serving inside 4 hours gives the maximal effect; roughly half the inhibition is still present at 10 hours. More juice does not add more.',
+  src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3589309/'},
+ nd:{dose:'3 caps — ALA 600 mg · NAC 600 mg · ALCAR 500 mg · B6 50 mg.',
+  why:'Antioxidant pre-load. ALA prevented MDMA neurotoxicity in rodents even when body temperature still rose.',
+  tier:'A',fig:'Rodent only for this purpose. No human trial of any pre-load against a neurotoxicity or comedown endpoint.',
+  note:'This dose is gone before your peak — ALA clears in 36 to 81 minutes. The hourly doses during the session are what actually provide coverage.'},
+ tad:{dose:'20 mg, two hours before first effects.',
+  why:'PDE5 inhibition offsets the vasoconstriction a releaser produces.',
+  tier:'M',fig:'20 mg is a standard approved dose with well-characterised human pharmacokinetics; peak at roughly 2 hours, half-life around 17.5 hours.',
+  note:'The interaction with a serotonin releaser is mechanism, not trial data. Blood pressure is the thing it moves.'},
+ pt:{dose:'2 mg subcutaneous.',
+  why:'Melanocortin agonist. Central arousal rather than vascular, so it stacks with tadalafil instead of duplicating it.',
+  tier:'M',fig:'Bremelanotide is FDA-approved at 1.75 mg subq. Your 2 mg sits just above the approved dose.',
+  note:'Nausea is the dose-limiting effect and it is dose-dependent. Dosing 90 minutes out puts that window before peak rather than on top of it.'},
+ temp:{dose:'Room below 75 °F. Check it with a thermometer.',
+  why:'The best-supported protective variable in the entire protocol, and the only one that is free.',
+  tier:'M',fig:'Malberg & Seiden 1998: at 20–24 °C (68–75 °F) neurotoxicity was not observed, and at 26–30 °C it appeared and tracked core temperature.',
+  note:'One 2004 paper argues hyperthermia is neither necessary nor sufficient, so this is a contested literature — but the intervention costs nothing.',
+  src:'https://www.jneurosci.org/content/18/13/5086'},
+ dose1:{dose:'See the setup panel. Onset by form: gummies about 150 min, capsule 100, liquid softgel 30 — plus the retatrutide delay on solids.',
+  why:'Splitting the first dose lets the slower vehicle arrive while the faster one is still up, which widens the plateau instead of stacking two peaks.',
+  tier:'A',fig:'Published ranges for context: Erowid puts strong at 60–120 mg and heavy at 120+. PsychonautWiki puts strong at 80–100 and heavy at 100+.',
+  note:'Your onset figures come from single sessions — one data point per vehicle. They will firm up as you log.'},
+ dose2:{dose:'See the setup panel.',
+  why:'The fast vehicle. A liquid in a drink largely slips past the gastric slowing that holds up solids.',
+  tier:'A',fig:'The 30-minute onset is your own report from one session. Nobody has published route or vehicle comparisons for this compound.',
+  note:'Half-life is 6.5 hours, from the one human case report that exists.',
+  src:'https://www.sciencedirect.com/science/article/abs/pii/S0196064416300038'},
+ bump:{dose:'Same as or less than the first dose. On the clock, not when it fades.',
+  why:'Extends the plateau. It does not raise the peak.',
+  tier:'M',fig:'At a 24-hour interval a second dose produced 77% more plasma AUC and almost no additional effect (Farré 2004). Acute tolerance is real and measured.',
+  note:'This is the specific reason not to chase a flat session with more milligrams: you buy cardiac, thermal and metabolite load without buying experience.',
+  src:'https://pubmed.ncbi.nlm.nih.gov/15071716/'},
+ kiss1:{dose:'Community-range dose, repeated because the half-life is short.',
+  why:'Sits upstream of GnRH and has been linked to limbic activation in sexual-processing tasks.',
+  tier:'A',fig:'Human trials exist for LH pulsatility and for brain activation, but none for this use alongside a releaser. The dose here is community practice.'},
+ kiss2:{dose:'Second dose roughly two hours after the first.',
+  why:'Short plasma half-life means a single dose does not cover a session.',
+  tier:'A',fig:'Repeat dosing is mechanism from the half-life, not an outcome finding.'},
+ ox0:{dose:'ALA 300 mg + vitamin C 250 mg, hourly, four times from peak.',
+  why:'Both clear in under an hour. A single pre-load is at roughly 2% of its level by the time you peak, so hourly is the only way to hold a level.',
+  tier:'M',fig:'Measured half-lives: ALA 36–81 min after 1,200 mg oral; vitamin C about 30 min at high plasma levels. Those numbers are the whole argument for the schedule.',
+  note:'This exact schedule appears in a human trial of non-racemic 5-MAPB — 250 mg ascorbic acid plus 300 mg ALA hourly from T+3h. But it was background support in a study testing enantiomer ratios, not a tested variable. File it under neuroprotection, not comedown.',
+  src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3489916/'},
+ mag:{dose:'200 mg at the first sign of jaw tension.',
+  why:'Bruxism and cramping.',
+  tier:'A',fig:'Community practice. No trial of magnesium against jaw clenching from a releaser.',
+  note:'Count it against the 400 mg before bed so the day total stays sensible.'},
+ thc:{dose:'Low. Three or four second draw.',
+  why:'Descent only. Earlier and it costs reaction time and flattens the quality you are there for.',
+  tier:'A',fig:'Your own preference plus community consensus. No data.'},
+ oxy1:{dose:'2 pumps intranasal, slow, aimed high and lateral. Do not sniff hard.',
+  why:'Tactile and pair-bonding quality.',
+  tier:'P',fig:'Human trials exist for intranasal oxytocin and social cognition, but intranasal bioavailability is low single digits and central penetration is genuinely contested.',
+  note:'Sniffing hard sends it down the throat instead of across the mucosa, which wastes the dose.'},
+ oxy2:{dose:'Second round about 90 minutes later.',why:'Short duration of effect.',
+  tier:'A',fig:'Timing is mechanism from half-life, not an outcome study.'},
+ stop:{dose:'Hard stop. Finish by 1–2 AM.',
+  why:'The largest single lever on how you feel for the next three days, and it is not a supplement.',
+  tier:'M',fig:'Your own comparison: Oct 31 ran to 8:10 AM and Sunday was lost. Nov 14 closed at 1–2 AM and you were functional by mid-morning.',
+  note:'Confounded — dose and structure also differed between those two sessions. But sleep debt is the one component of the comedown that nothing in the stack can repay.'},
+ bmag:{dose:'400 mg magnesium glycinate.',why:'Sleep quality and residual muscle tension.',
+  tier:'P',fig:'Glycinate is better tolerated than oxide. Effect on sleep quality is modest in the trials that exist.'},
+ bmel:{dose:'3–5 mg.',why:'Sleep onset, and melatonin is itself made from serotonin, which is depleted now.',
+  tier:'M',fig:'Melatonin for sleep onset is well established. The higher doses used in harm-reduction protocols are for antioxidant effect, which is far weaker evidence.'},
+ belec:{dose:'Electrolytes with water, moderate.',why:'Replaces what the evening cost without over-drinking.',
+  tier:'P',fig:'Hyponatremia from over-drinking plain water is the documented risk with releasers. Rate is unverified for this compound.'},
+ bno5:{dose:'None. Zero.',why:'A serotonin precursor on board with a releaser still in your system is the serotonin syndrome configuration.',
+  tier:'M',fig:'The 24-hour rule is standard harm-reduction guidance and the mechanism is not in dispute.',
+  note:'The gate runs both directions — nothing the night before either.'},
+ 'r-tyr':{dose:'1,000 mg, mornings, from the day after.',
+  why:'Rate-limiting precursor for dopamine and noradrenaline, which are also depleted.',
+  tier:'M',fig:'Jongkees 2015: the cognitive benefit is depletion-dependent — present under stress or depletion, absent at baseline. The morning after is exactly the depleted state.',
+  note:'Never on session day. Tyrosine infusion potentiated MDMA-induced serotonin depletion in rats, so on board during the session it may work against you.',
+  src:'https://pubmed.ncbi.nlm.nih.gov/26424423/'},
+ 'r-food':{dose:'Full breakfast, carbohydrate included.',
+  why:'Carbohydrate raises the tryptophan-to-other-amino-acid ratio crossing into the brain, which favours serotonin synthesis.',
+  tier:'P',fig:'The transport competition is established biochemistry. The size of the effect on mood the morning after a session is not measured.'},
+ 'r-elec':{dose:'Electrolytes, plus 15–20 minutes of outdoor light.',
+  why:'Morning light anchors circadian timing after a late night.',
+  tier:'M',fig:'Morning light exposure and circadian phase is well-established human research.'},
+ 'r-stack':{dose:'EPA · CoQ10 · multivitamin · creatine · D3+K2 — your normal amounts.',
+  why:'Back to baseline, nothing special.',tier:'P',fig:'Ordinary supplementation. Nothing here is targeting the comedown.'},
+ 'r-walk':{dose:'Walking only. No training.',
+  why:'Thermoregulation and cardiovascular load are both still off baseline, and a hard session today reads as poor recovery in your own data for days.',
+  tier:'P',fig:'Mechanism plus the fact that training load confounds every objective metric you are tracking.'},
+ 'r-5htp':{dose:'100 mg 5-HTP with 400 mg EGCG, 8 PM or later. Never unpaired.',
+  why:'Direct serotonin precursor that bypasses the rate-limiting enzyme the drug suppresses. The strongest single item in the recovery stack.',
+  tier:'P',fig:'The biochemistry is solid; no trial has measured 5-HTP against post-session mood. EGCG inhibits aromatic L-amino acid decarboxylase in the gut, so more of the dose survives to cross into the brain.',
+  note:'Unpaired, most of it converts peripherally. Peripheral serotonin is the mechanism behind the valve concern, which is why the pairing is not optional. Soft Landings has 150 mg of 5-HTP and no EGCG.'},
+ 'r-pm':{dose:'Magnesium 400 mg · melatonin.',why:'Second night of protected sleep.',
+  tier:'P',fig:'Same basis as the first night.'},
+ 'w-am':{dose:'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax 600 mcg intranasal.',
+  why:'Catecholamine substrate while still depleted.',
+  tier:'P',fig:'Tyrosine as above. Semax has Russian clinical literature and essentially no Western trial data.'},
+ 'w-pm':{dose:'5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg.',why:'Serotonin substrate, nightly through day 10.',
+  tier:'P',fig:'Mechanism. Ten days is convention, not a measured endpoint.'},
+ 'w-nac':{dose:'600 mg daily through day 10.',
+  why:'Glutathione precursor. The oxidative load is not an acute event — the rebuild takes weeks.',
+  tier:'M',fig:'In people with low baseline glutathione, 30 days of NAC was required to restore it. That is the number that corrected my earlier claim that one pre-session dose was its whole job.',
+  src:'https://pubmed.ncbi.nlm.nih.gov/29233792/'},
+ 'w-ala':{dose:'Stop the ALA from day 3.',
+  why:'You train five or six days a week for hypertrophy, and chronic high-dose antioxidants blunt that adaptation.',
+  tier:'M',fig:'Bjørnsen 2016: 12 weeks of vitamin C+E gave 3.9% lean mass gain on placebo against 1.4% on antioxidants. Martínez-Ferrán 2022 found the same direction in trained men on a surplus.',
+  note:'Those trials used C and E rather than ALA, and one review calls the overall effect minimal. Mixed literature — but you are the exact case where it would matter.',
+  src:'https://pubmed.ncbi.nlm.nih.gov/26129928/'},
+ 'w-stop':{dose:'Last 5-HTP on day 10.',why:'Open-ended precursor loading has no rationale once substrate is restored.',
+  tier:'A',fig:'Ten days is a convention. No trial establishes the right duration.'},
+ 'w-alc':{dose:'None for seven days.',
+  why:'Shares the glutathione and hepatic load you are trying to recover, and wrecks the sleep that is doing most of the work.',
+  tier:'M',fig:'Alcohol and sleep architecture is well established — it suppresses REM and fragments the second half of the night.'},
+ 'p-bpc':{dose:'250–500 mcg daily, two to three weeks.',
+  why:'You are running it. On this endpoint it is the weakest item in the protocol.',
+  tier:'N',fig:'No human data for serotonergic recovery, and nothing measuring SERT at all. The rat work shows acute region-dependent synthesis changes — and the decrease landed in hippocampus and hypothalamus, which are the regions the MDMA literature flags. For this purpose that is the wrong direction.',
+  note:'This says nothing about its soft-tissue uses, which are a separate question with their own rodent literature.'},
+ 'p-tb':{dose:'2–5 mg per week, split into two.',why:'Actin-sequestering peptide, used for tissue repair.',
+  tier:'N',fig:'No human neurological trials. The axonal regeneration findings are rodent.'},
+ t1:{dose:'Walking only.',why:'See the day-after note — training today contaminates every metric you are logging.',
+  tier:'P',fig:'Mechanism plus measurement hygiene.'},
+ t2:{dose:'Light session.',why:'Testing the water.',tier:'A',fig:'Convention.'},
+ t3:{dose:'Normal.',why:'Back to it.',tier:'A',
+  fig:'Your own record has Tuesday as the rebound day after a Saturday session, which is day 3.'}
+};
+var TIER={M:['Measured in humans','#2BD4A0'],P:['Mechanism only','#56A8F5'],
+ A:['Assumption','#F0B041'],N:['No evidence','#F4556B']};
+
+
+/* ---------- session setup: per person, per date ---------- */
+var SF=['c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
+var setupT=null;
+function readSetup(){
+  var o={date:$('c-date').value};
+  SF.forEach(function(i){ o[i]=$(i).value; });
+  o.bump=$('c-bump').classList.contains('on');
+  o.reta=$('c-reta').classList.contains('on');
+  o.mg=(+$('c-d1').value||0)+(+$('c-d2').value||0)+(o.bump?(+$('c-bd').value||0):0);
+  o.start=$('c-t0').value;
+  o.peakAt=clock(peak());
+  return o;
+}
+function applySetup(r){
+  if(!r) return;
+  SF.forEach(function(i){ if(r[i]!==undefined&&r[i]!==null&&r[i]!=='') $(i).value=r[i]; });
+  [['c-bump',r.bump],['c-reta',r.reta]].forEach(function(p){
+    if(p[1]===undefined) return;
+    var b=$(p[0]); b.classList.toggle('on',!!p[1]); b.setAttribute('aria-checked',p[1]?'true':'false');
+  });
+  var on=$('c-bump').classList.contains('on');
+  ['c-br1','c-br2','c-br3'].forEach(function(x){ $(x).style.display=on?'':'none'; });
+}
+function loadSetup(){
+  var r=find(sess,$('c-date').value);
+  applySetup(r);
+  $('setupstate').innerHTML=r
+    ? 'Saved variant for <b>'+who+'</b> on '+r.date+(r.secondHand?' (entered second-hand)':'')+'.'
+    : 'No variant saved for <b>'+who+'</b> on this date yet. It saves as you set it.';
+}
+function saveSetup(){
+  if(!canWrite()) return;
+  clearTimeout(setupT);
+  setupT=setTimeout(function(){
+    var r=readSetup();
+    var prev=find(sess,r.date);
+    if(prev&&prev.gap!==undefined) r.gap=prev.gap;
+    var last=sess.filter(function(x){return x.person===who&&x.date<r.date;})
+      .map(function(x){return x.date;}).sort().pop();
+    r.gap=last?Math.round((new Date(r.date)-new Date(last))/86400000):null;
+    SB.from('sessions').upsert(setupToRow(r),{onConflict:'user_id,subject,session_date'})
+      .then(function(){ pull(); });
+  },900);
+}
+
+/* ---------- check-offs ---------- */
+function key(){ return who+'|'+$('c-date').value; }
+function canWrite(){ return !!(SB&&UID&&ROLE); }
+function ck(id){ return !!(checks[key()]||{})[id]; }
+function toggle(id){
+  var k=key(); checks[k]=checks[k]||{};
+  if(checks[k][id]) delete checks[k][id]; else checks[k][id]=new Date().toISOString();
+  if(canWrite()){
+    var d=$('c-date').value;
+    if(checks[k][id]) SB.from('check_offs').upsert(stamp({session_date:d,item_id:id,
+      checked_at:new Date().toISOString()}),{onConflict:'user_id,subject,session_date,item_id'}).then(function(){});
+    else SB.from('check_offs').delete()
+      .match({user_id:UID,subject:who,session_date:d,item_id:id}).then(function(){});
+  }
+  protocol();
+}
+function rows(target,list,timed,count){
+  var g=$(target); g.innerHTML=''; var now=Date.now(), done=0;
+  list.forEach(function(e){
+    var on=ck(e.id); if(on) done++;
+    var ev=el('div','ev'+(e.key?' key':'')+(on?' done':'')+(timed==='pre'?' pre':''));
+    var rail=el('div','rail'); var node=el('div','node','&#10003;'); rail.appendChild(node);
+    rail.appendChild(el('div','wire')); ev.appendChild(rail);
+    var card=el('div','card');
+    if(timed) card.appendChild(el('div','when',e.off===null?'At jaw onset':clock(e.off)));
+    card.appendChild(el('div','what',e.n));
+    if(e.d) card.appendChild(el('div','why',e.d));
+    var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
+    if(info){
+      var bar=el('div','infobar');
+      var t=TIER[info.tier]||TIER.A;
+      bar.appendChild(el('span','badge','<i style="background:'+t[1]+'"></i>'+t[0]));
+      var more=el('button','more','Why this &rsaquo;'); more.type='button';
+      bar.appendChild(more); card.appendChild(bar);
+      var det=el('div','det');
+      det.innerHTML='<div class="dl">Dose</div><div class="dv">'+info.dose+'</div>'+
+        '<div class="dl">Why it is here</div><div class="dv">'+info.why+'</div>'+
+        '<div class="dl">Evidence</div><div class="dv">'+info.fig+'</div>'+
+        (info.note?'<div class="dl">Watch</div><div class="dv">'+info.note+'</div>':'')+
+        (info.src?'<a class="sl" href="'+info.src+'">Source</a>':'');
+      card.appendChild(det);
+      more.onclick=function(k){ k.stopPropagation();
+        var open=det.classList.toggle('open');
+        more.innerHTML=open?'Close &rsaquo;':'Why this &rsaquo;';
+        more.setAttribute('aria-expanded',open?'true':'false');
+      };
+      more.onkeydown=function(k){ k.stopPropagation(); };
+    }
+    if(timed&&!on&&e.off!==null){
+      var d=eventDate(e.off);
+      if(d){ var diff=d.getTime()-now; if(diff<=0&&diff>-5400000) ev.classList.add('now'); }
+    }
+    ev.appendChild(card);
+    ev.setAttribute('role','button'); ev.setAttribute('tabindex','0');
+    ev.setAttribute('aria-pressed',on?'true':'false');
+    ev.setAttribute('aria-label',e.n+(on?' — done':''));
+    ev.onclick=function(){ toggle(e.id); };
+    ev.onkeydown=function(k){ if(k.key==='Enter'||k.key===' '){ k.preventDefault(); toggle(e.id); } };
+    g.appendChild(ev);
+  });
+  if(count) $(count).textContent=done+' of '+list.length;
+  return [done,list.length];
+}
+function protocol(){
+  var a=rows('g-pre',PRE(),'pre','n-pre');
+  var b=rows('g-peri',PERI(),1,'n-peri');
+  var c=rows('g-bed',BED,0,'n-bed');
+  rows('g-d1',D1,0,'n-d1'); rows('g-week',WEEK,0,'n-week');
+  rows('g-pep',PEP,0,'n-pep'); rows('g-train',TRAIN,0,'n-train');
+  var done=a[0]+b[0]+c[0], tot=a[1]+b[1]+c[1];
+  var p=tot?done/tot:0, C=2*Math.PI*22;
+  $('arc').setAttribute('stroke-dashoffset',String(C*(1-p)));
+  $('pct').textContent=Math.round(p*100)+'%';
+  var d1=+$('c-d1').value||0, d2=+$('c-d2').value||0;
+  var bd=$('c-bump').classList.contains('on')?(+$('c-bd').value||0):0, pk=peak();
+  var o1=onset(0,$('c-v1').value), o2=onset(60,$('c-v2').value);
+  var first=Math.min(o1,o2), slowest=Math.max(o1,o2);
+  $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b> — '+d1+' + '+d2+(bd?' + '+bd:'')+
+    '. First effects around <b>'+clock(first)+'</b>, the slower vehicle arrives <b>'+clock(slowest)+
+    '</b>, full peak around <b>'+clock(pk)+'</b>. Protocol closes <b>'+clock(pk+300)+'</b>.'+
+    ($('c-reta').classList.contains('on')?
+      ' Retatrutide is holding the solids back about '+RETA[$('c-v1').value]+
+      ' min; the liquid mostly slips past it.':'')+
+    ' Antioxidants start at peak, not before.';
+  $('hsub').textContent=$('c-date').value+' · '+clock(0)+' start';
+  var last=sess.filter(function(s){return s.person===who&&s.date<$('c-date').value;})
+    .map(function(s){return s.date;}).sort().pop();
+  var gap=last?Math.round((new Date($('c-date').value)-new Date(last))/86400000):null;
+  var closeM=(mins($('c-t0').value)||0)+pk+300;
+  var lateBy=closeM-(26*60);
+  var lateMsg=lateBy>0?'<b>Finishes '+clock(pk+300)+', which is '+
+    (lateBy>=60?Math.floor(lateBy/60)+' hr '+(lateBy%60?lateBy%60+' min':''):lateBy+' min')+
+    ' past your 1&ndash;2 AM line.</b> The gummies are what push it &mdash; they do not land until '+
+    clock(onset(0,$('c-v1').value))+'. Lead with the softgel, or start earlier. Sleep is the lever you keep saying matters most.<br><br>':'';
+  $('gates').innerHTML=lateMsg+(gap!==null&&gap<14?
+    '<b>'+gap+' days since your last session.</b> Tolerance is real at this interval and a flatter, shorter session is the most likely outcome. Do not correct with dose — at a 24-hour interval, 77% more plasma bought almost no extra effect.<br><br>':'')+
+    '<b>Two gates.</b> No 5-HTP from the night before through the session. No tyrosine the morning of — on board during, it may worsen the depletion rather than help.';
+  next();
+}
+function next(){
+  var list=PRE().concat(PERI()).filter(function(e){return e.off!==null&&!ck(e.id);});
+  var now=Date.now(), up=null;
+  list.forEach(function(e){
+    var d=eventDate(e.off); if(!d||d.getTime()<now-2700000) return;
+    if(!up||d<eventDate(up.off)) up=e;
+  });
+  var h=$('hero');
+  if(!up){ h.className='hero idle'; $('h-next').textContent='Nothing outstanding';
+    $('h-cd').innerHTML='<small>Every timed item is checked off</small>'; return; }
+  h.className='hero';
+  var diff=eventDate(up.off).getTime()-now;
+  $('h-next').textContent=up.n;
+  if(diff<=0){ $('h-cd').innerHTML='Due now <small>· '+clock(up.off)+'</small>'; }
+  else{ var m=Math.round(diff/60000), hh=Math.floor(m/60);
+    $('h-cd').innerHTML=(hh?hh+'h ':'')+(m%60)+'m <small>· '+clock(up.off)+'</small>'; }
+}
+SF.forEach(function(i){
+  $(i).addEventListener('input',function(){protocol(); saveSetup();});
+  $(i).addEventListener('change',function(){protocol(); saveSetup();});
+});
+$('c-date').addEventListener('change',function(){ loadSetup(); protocol(); });
+function tg(id,after){ $(id).onclick=function(){
+  var on=this.classList.toggle('on'); this.setAttribute('aria-checked',on?'true':'false');
+  if(after) after(on); }; }
+tg('c-reta',function(){protocol(); saveSetup();});
+tg('c-bump',function(on){
+  ['c-br1','c-br2','c-br3'].forEach(function(r){ $(r).style.display=on?'':'none'; });
+  protocol(); saveSetup(); });
+tg('a-rec');
+$('reset').onclick=function(){
+  var b=this;
+  if(b.dataset.armed!=='1'){ b.dataset.armed='1'; b.textContent='Tap again to clear';
+    setTimeout(function(){b.dataset.armed='0'; b.innerHTML='Clear today&rsquo;s check-offs';},4000); return; }
+  b.dataset.armed='0'; checks[key()]={};
+  if(canWrite()) SB.from('check_offs').delete()
+    .match({user_id:UID,subject:who,session_date:$('c-date').value}).then(function(){});
+  b.innerHTML='Clear today&rsquo;s check-offs'; protocol();
+};
+setInterval(next,20000);
+
+/* ---------- tabs ---------- */
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){
+  b.onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(x){x.classList.remove('on');});
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(x){x.classList.remove('on');});
+    b.classList.add('on'); $('v-'+b.dataset.v).classList.add('on');
+    window.scrollTo(0,0);
+  };
+});
+Array.prototype.forEach.call(document.querySelectorAll('#idbar .people button'),function(b){
+  b.onclick=function(){
+    if(who===b.dataset.w) return;
+    who=b.dataset.w; proxy=(ROLE&&who!==ROLE);
+    paintWho(); whoBar(); dirtyD=false; loadSetup(); loadSetup(); protocol(); loadDaily(); render();
+  };
+});
+
+/* ---------- scales ---------- */
+var picks={};
+function build(id,opts){
+  var e=$(id); e.innerHTML='';
+  opts.forEach(function(o){
+    var b=el('button',null,o[1]); b.type='button'; b.dataset.val=o[0];
+    b.onclick=function(){ picks[id]=(picks[id]===o[0])?null:o[0]; paint(id); dirtyD=true; };
+    e.appendChild(b);
+  });
+  paint(id);
+}
+function paint(id){ Array.prototype.forEach.call($(id).children,function(b){
+  b.classList.toggle('on',picks[id]===b.dataset.val); }); }
+function ten(id){ var o=[]; for(var i=1;i<=10;i++)o.push([String(i),String(i)]); build(id,o); }
+build('d-day',[['B','B'],['0','0'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7']]);
+build('d-tload',[['None','None'],['Light','Light'],['Moderate','Mod'],['Hard','Hard']]);
+['d-mood','d-energy','d-motiv','d-libido'].forEach(ten);
+
+/* ---------- pvt ---------- */
+var pad=$('pad'), padn=$('padn'), padc=$('padc'), N=30;
+var st='idle', tr=[], fs=0, shown=0, tmr=null, tk=null, raf=null, lost=false, voided=0;
+document.addEventListener('visibilitychange',function(){ if(document.hidden&&(st==='go'||st==='wait')) lost=true; });
+function face(c,b,s){ pad.className=c; padn.textContent=b; padc.textContent=s; }
+function mean(a){ return a.reduce(function(x,y){return x+y;},0)/a.length; }
+function nextTrial(){
+  if(tr.length>=N){ finish(); return; }
+  st='wait'; face('','Wait',(tr.length+1)+' of '+N);
+  tmr=setTimeout(function(){
+    st='go'; face('fire','0','tap now');
+    raf=requestAnimationFrame(function(){ requestAnimationFrame(function(){
+      shown=performance.now();
+      tk=setInterval(function(){ padn.textContent=String(Math.round(performance.now()-shown)); },10);
+    });});
+  },2000+Math.random()*8000);
+}
+function finish(){
+  st='idle'; face('','Done','tap to run again');
+  var s=tr.slice().sort(function(a,b){return a-b;});
+  var mn=Math.round(mean(tr));
+  var md=Math.round(s.length%2?s[(s.length-1)/2]:(s[s.length/2-1]+s[s.length/2])/2);
+  var k=Math.max(1,Math.round(s.length*0.1)), sl=Math.round(mean(s.slice(-k)));
+  $('r-mean').textContent=mn; $('r-med').textContent=md; $('r-slow').textContent=sl;
+  $('r-fs').textContent=fs+' / '+voided; $('read').style.display='grid';
+  var base=daily.filter(function(r){return r.person===who&&r.day==='B'&&typeof r.pvtRT==='number';});
+  if(base.length>=3){
+    var bm=mean(base.map(function(r){return r.pvtRT;})), d=Math.round(mn-bm);
+    $('r-vs').innerHTML='<b>Against your own baseline.</b> '+Math.round(bm)+' ms across '+base.length+
+      ' baseline days. Today is '+(d>=0?'+':'')+d+' ms.';
+  }else{
+    $('r-vs').innerHTML='<b>No baseline yet.</b> Log three days marked B with no session in them. Until then there is nothing to compare against.';
+  }
+  $('r-vs').style.display='block';
+  if(canWrite()) SB.from('pvt_runs').insert(stamp({trials_ms:tr,mean_ms:mn,median_ms:md,
+    slow10_ms:sl,false_starts:fs,voided:voided})).then(function(){});
+  var sv=$('pvtsave'); sv.style.display='block';
+  sv.onclick=function(){ $('d-rt').value=mn; $('d-slow').value=sl; dirtyD=true;
+    document.querySelector('.tabs button[data-v="recovery"]').click(); };
+}
+pad.onclick=function(){
+  if(st==='idle'){ tr=[];fs=0;voided=0;lost=false; $('read').style.display='none';
+    $('r-vs').style.display='none'; $('pvtsave').style.display='none'; nextTrial(); return; }
+  if(st==='wait'){ clearTimeout(tmr); fs++; lost=false;
+    if(fs>15){ st='idle'; face('void','Too many false starts','run it again when settled'); return; }
+    st='pause'; face('void','Too early','tap to continue'); return; }
+  if(st==='pause'){ nextTrial(); return; }
+  if(st==='go'){
+    if(!shown) return;
+    clearInterval(tk); cancelAnimationFrame(raf);
+    var rt=Math.round(performance.now()-shown); shown=0; st='pause';
+    if(lost){ lost=false; voided++; face('void','Discarded','page lost focus — tap to continue'); return; }
+    tr.push(rt); face('',rt+' ms','tap to continue');
+  }
+};
+
+/* ---------- daily entry ---------- */
+function val(i){ var e=$(i); return e.value===''?null:e.value; }
+function num(i){ var v=val(i); return v===null?null:Number(v); }
+function setv(i,v){ $(i).value=(v===null||v===undefined)?'':v; }
+function setp(i,v){ picks[i]=(v===null||v===undefined||v==='')?null:String(v); paint(i); }
+var DIN=['d-rt','d-slow','d-jump','d-hr','d-sleep','d-rem','d-set','d-notes'];
+var DPK=['d-day','d-tload','d-mood','d-energy','d-motiv','d-libido'];
+DIN.forEach(function(i){ $(i).addEventListener('input',function(){dirtyD=true;}); });
+function readDaily(){
+  function p(i){ return picks[i]?Number(picks[i]):null; }
+  return {date:val('d-date'),day:picks['d-day'],pvtRT:num('d-rt'),pvtSlow:num('d-slow'),
+    jump:num('d-jump'),restHR:num('d-hr'),sleep:num('d-sleep'),rem:num('d-rem'),
+    trainLoad:picks['d-tload'],topSet:val('d-set'),mood:p('d-mood'),energy:p('d-energy'),
+    motivation:p('d-motiv'),libido:p('d-libido'),notes:val('d-notes')};
+}
+function find(a,d){ for(var i=0;i<a.length;i++) if(a[i].person===who&&a[i].date===d) return a[i]; return null; }
+function owning(date,day){
+  if(day==='B') return null; var b=null;
+  sess.forEach(function(x){ if(x.person!==who||!x.date||x.date>date) return; if(!b||x.date>b) b=x.date; });
+  return b;
+}
+function loadDaily(){
+  var r=find(daily,$('d-date').value);
+  $('ddel').style.display=r?'block':'none';
+  if(!r){ DIN.forEach(function(i){$(i).value='';}); DPK.forEach(function(i){setp(i,null);}); return; }
+  setv('d-rt',r.pvtRT); setv('d-slow',r.pvtSlow); setv('d-jump',r.jump); setv('d-hr',r.restHR);
+  setv('d-sleep',r.sleep); setv('d-rem',r.rem); setv('d-set',r.topSet); setv('d-notes',r.notes);
+  setp('d-day',r.day); setp('d-tload',r.trainLoad); setp('d-mood',r.mood);
+  setp('d-energy',r.energy); setp('d-motiv',r.motivation); setp('d-libido',r.libido);
+}
+$('d-date').onchange=function(){ dirtyD=false; loadDaily(); };
+var ds=$('dsave'); ds.dataset.t='Save day';
+ds.onclick=function(){
+  var r=readDaily(), e=$('d-err');
+  if(!r.date){ e.textContent='Pick a date.'; e.style.display='block'; return; }
+  if(!r.day){ e.textContent='Set the day. Without it the entry cannot be analysed.'; e.style.display='block'; return; }
+  var n=0; for(var k in r){ if(['date','day','notes'].indexOf(k)<0&&r[k]!==null&&r[k]!=='') n++; }
+  if(!n){ e.textContent='Record at least one measurement.'; e.style.display='block'; return; }
+  r.sessionDate=owning(r.date,r.day);
+  if(r.day!=='B'&&!r.sessionDate){ e.textContent='No session logged on or before this date. Save the session first.'; e.style.display='block'; return; }
+  if(r.sessionDate){
+    var g=Math.round((new Date(r.date)-new Date(r.sessionDate))/86400000);
+    if(g!==Number(r.day)){ e.textContent='That date is '+g+' day'+(g===1?'':'s')+' after the '+
+      r.sessionDate+' session, but the day says '+r.day+'. Fix one.'; e.style.display='block'; return; }
+  }
+  if(!canWrite()){ e.textContent='Not connected, or no identity claimed — nothing can be saved.'; e.style.display='block'; return; }
+  e.style.display='none';
+  ds.textContent='Saving…'; ds.disabled=true; dirtyD=false;
+  SB.from('day_logs').upsert(dayToRow(r),{onConflict:'user_id,subject,log_date'}).then(function(res){
+    if(res.error) throw res.error; pull();
+    ds.textContent='Saved'; ds.disabled=false; setTimeout(function(){ds.textContent=ds.dataset.t;},1600);
+  }).catch(function(){ ds.textContent=ds.dataset.t; ds.disabled=false;
+    e.textContent='Save failed. Try again.'; e.style.display='block'; });
+};
+var dd=$('ddel'); dd.dataset.t='Delete this entry'; dd.dataset.armed='0';
+dd.onclick=function(){
+  if(!DB) return;
+  if(dd.dataset.armed!=='1'){ dd.dataset.armed='1'; dd.textContent='Tap again to delete';
+    setTimeout(function(){dd.dataset.armed='0'; dd.textContent=dd.dataset.t;},4000); return; }
+  dd.dataset.armed='0';
+  var row=find(daily,$('d-date').value);
+  if(row&&row.uid&&row.uid!==UID){ $('d-err').textContent=
+    'That row was saved by the other account. Only they can delete it.'; $('d-err').style.display='block'; return; }
+  SB.from('day_logs').delete().match({user_id:UID,subject:who,log_date:$('d-date').value})
+    .then(function(){ pull(); });
+};
+
+/* ---------- record ---------- */
+var DCOL=[['date','date'],['person','who'],['day','day'],['sessionDate','session'],['pvtRT','rt'],
+ ['pvtSlow','slow10'],['jump','jump'],['sleep','sleep'],['rem','rem'],['restHR','hr'],
+ ['trainLoad','train'],['mood','mood'],['energy','enrg'],['motivation','motv'],['libido','libido'],
+ ['topSet','top set'],['notes','notes']];
+var METRICS=[['pvtRT','Reaction','lower'],['pvtSlow','Slowest 10%','lower'],['jump','Jump','higher'],
+ ['sleep','Sleep','higher'],['rem','REM latency','higher'],['restHR','Resting HR','lower'],
+ ['mood','Mood','higher'],['energy','Energy','higher'],['motivation','Motivation','higher'],
+ ['libido','Libido','higher']];
+function esc(v){ return v===null||v===undefined?'':String(v).replace(/[<>&]/g,''); }
+function sdev(a,m){ return a.length>1?Math.sqrt(a.map(function(v){return (v-m)*(v-m);})
+  .reduce(function(x,y){return x+y;},0)/(a.length-1)):0; }
+function strips(){
+  var e=$('strips'), mine=daily.filter(function(r){return r.person===who;});
+  var base=mine.filter(function(r){return r.day==='B';});
+  if(base.length<3){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">Needs three baseline days marked B. You have '+
+    base.length+'. Every comparison here is measured from them.</span></div>'; return; }
+  var pk=$('pick').value, days={};
+  mine.forEach(function(r){ if(r.sessionDate===pk&&r.day&&r.day!=='B') days[r.day]=r; });
+  if(!Object.keys(days).length){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">No days logged against that session yet.</span></div>'; return; }
+  e.innerHTML=METRICS.map(function(m){
+    var bv=base.map(function(r){return r[m[0]];}).filter(function(v){return typeof v==='number';});
+    if(bv.length<2) return '';
+    var bm=mean(bv), sd=sdev(bv,bm)||1, pts='', tks='';
+    for(var d=1;d<=7;d++){
+      var x=12+(d-1)*((160-24)/6);
+      tks+='<line x1="'+x+'" y1="26" x2="'+x+'" y2="29" stroke="#262B42" stroke-width="1"/>';
+      var r=days[String(d)]; if(!r||typeof r[m[0]]!=='number') continue;
+      var z=(r[m[0]]-bm)/sd, c=Math.max(-2.4,Math.min(2.4,z));
+      var up=(m[2]==='lower')?-c:c, y=16-up*5.2;
+      var col=Math.abs(z)<1?'#666C8C':(up>0?'#34D399':'#F4556B');
+      pts+='<line x1="'+x+'" y1="16" x2="'+x+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1.8"/>'+
+        '<circle cx="'+x+'" cy="'+y.toFixed(1)+'" r="3" fill="'+col+'"/>';
+    }
+    return '<div class="strip"><span class="nm">'+m[1]+'</span><svg viewBox="0 0 160 32" '+
+      'preserveAspectRatio="none" role="img" aria-label="'+m[1]+' departure from baseline">'+
+      '<rect x="0" y="10.8" width="160" height="10.4" fill="#1F2338"/>'+
+      '<line x1="0" y1="16" x2="160" y2="16" stroke="#3A4060" stroke-width="1"/>'+tks+pts+
+      '</svg><span class="bv">'+(Math.round(bm*10)/10)+'</span></div>';
+  }).join('');
+}
+function options(){
+  var s=$('pick'), cur=s.value, have={};
+  sess.forEach(function(r){ if(r.person===who&&r.date) have[r.date]=1; });
+  daily.forEach(function(r){ if(r.person===who&&r.sessionDate) have[r.sessionDate]=1; });
+  var ks=Object.keys(have).sort().reverse();
+  s.innerHTML=ks.length?ks.map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('')
+    :'<option value="">none yet</option>';
+  if(cur&&ks.indexOf(cur)>=0) s.value=cur;
+}
+function render(){
+  var d=blind?daily.filter(function(r){return r.person===who;}):daily.slice();
+  d.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var t=$('t-daily');
+  var h='<tr>'+DCOL.map(function(c){return '<th>'+c[1]+'</th>';}).join('')+'<th></th></tr>';
+  t.innerHTML=d.length?h+d.map(function(r){
+    return '<tr>'+DCOL.map(function(c){return '<td>'+esc(r[c[0]])+'</td>';}).join('')+
+      (r.uid===UID?'<td><button data-d="'+esc(r.date)+'">delete</button></td>':
+        '<td>'+(r.secondHand?'2nd hand':'')+'</td>')+'</tr>';
+  }).join(''):h+'<tr><td colspan="'+(DCOL.length+1)+'">nothing yet</td></tr>';
+  Array.prototype.forEach.call(t.querySelectorAll('button'),function(b){
+    b.onclick=function(){
+      if(b.textContent==='delete'){ b.textContent='sure?'; setTimeout(function(){b.textContent='delete';},4000); return; }
+      var row=find(daily,b.dataset.d);
+      if(row&&row.uid&&row.uid!==UID){ b.textContent='not yours'; return; }
+      if(canWrite()) SB.from('day_logs').delete()
+        .match({user_id:UID,subject:who,log_date:b.dataset.d}).then(function(){ pull(); });
+    };
+  });
+  options(); strips();
+}
+$('pick').onchange=strips;
+$('blind').onclick=function(){
+  blind=!blind; this.classList.toggle('on',!blind);
+  this.setAttribute('aria-checked',!blind?'true':'false');
+  $('revtxt').textContent=blind?'Your rows only':'Both — scores can anchor each other';
+  render();
+};
+$('copy').onclick=function(){
+  var b=this, out=DCOL.map(function(c){return c[1];}).join(',')+'\n';
+  daily.forEach(function(r){ out+=DCOL.map(function(c){ var v=r[c[0]];
+    return v===null||v===undefined?'':'"'+String(v).replace(/"/g,'""')+'"'; }).join(',')+'\n'; });
+  navigator.clipboard.writeText(out).then(function(){
+    b.textContent='Copied — both people, every row'; setTimeout(function(){b.textContent='Copy everything as CSV';},2000);
+  }).catch(function(){ b.textContent='Copy blocked — select the table instead'; });
+};
+
+/* ---------- calendar ---------- */
+function saveFile(name,text){
+  var b=new Blob([text],{type:'text/calendar;charset=utf-8'});
+  var u=URL.createObjectURL(b), a=document.createElement('a');
+  a.href=u; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(function(){ document.body.removeChild(a); URL.revokeObjectURL(u); },1500);
+}
+function p2(n){ return (n<10?'0':'')+n; }
+function icsL(d){ return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'T'+p2(d.getHours())+p2(d.getMinutes())+'00'; }
+function fold(l){ var o=[],s=l; while(s.length>72){o.push(s.slice(0,72)); s=' '+s.slice(72);} o.push(s); return o.join('\r\n'); }
+function vev(uid,start,title,body,lead){
+  var L=['BEGIN:VEVENT','UID:'+uid+'@protocol.local',
+   'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''),
+   'DTSTART;TZID=America/Boise:'+icsL(start),'DURATION:PT5M',fold('SUMMARY:'+title)];
+  if(body) L.push(fold('DESCRIPTION:'+body.replace(/\n/g,'\\n')));
+  L.push('BEGIN:VALARM','ACTION:DISPLAY',fold('DESCRIPTION:'+title),
+   'TRIGGER:'+(lead>0?'-PT'+lead+'M':'PT0M'),'END:VALARM','END:VEVENT');
+  return L.join('\r\n');
+}
+function buildIcs(){
+  var lead=+$('a-lead').value||0, evs=[], q=0, sd=$('c-date').value;
+  PRE().concat(PERI()).forEach(function(e){
+    if(e.off===null) return; var d=eventDate(e.off); if(!d) return;
+    evs.push(vev('p'+(q++)+'-'+sd,d,e.n,e.d||'',lead));
+  });
+  var bed=eventDate(peak()+330);
+  if(bed) evs.push(vev('p'+(q++)+'-'+sd,bed,'Before bed',
+    BED.map(function(b){return b.n;}).join(' · '),lead));
+  if($('a-rec').classList.contains('on')){
+    var base=new Date(sd+'T00:00:00');
+    function at(k,h,m){ var x=new Date(base); x.setDate(x.getDate()+k); x.setHours(h,m,0,0); return x; }
+    evs.push(vev('r1a-'+sd,at(1,8,0),'L-tyrosine 1,000 mg',
+      'Full breakfast with carbs, electrolytes, 15-20 min sunlight. Walk only today.',lead));
+    evs.push(vev('r1b-'+sd,at(1,20,0),'5-HTP 100 mg + EGCG 400 mg','T+24h gate clears now. Never unpaired.',lead));
+    for(var d=2;d<=10;d++){
+      evs.push(vev('rm'+d+'-'+sd,at(d,8,0),'Morning stack',
+        'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax'+(d>=3?' · no ALA from today':''),lead));
+      evs.push(vev('re'+d+'-'+sd,at(d,20,0),'Evening stack',
+        '5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg · NAC 600 mg'+(d===10?' · last 5-HTP day':''),lead));
+    }
+  }
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Protocol//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH']
+    .concat(evs).concat(['END:VCALENDAR']).join('\r\n');
+}
+$('a-make').onclick=function(){
+  var b=this;
+  if(!$('c-date').value||!$('c-t0').value){ $('a-note').textContent='Set the session date and first dose time first.'; return; }
+  try{ saveFile('protocol-'+$('c-date').value+'.ics',buildIcs());
+    b.textContent='Downloaded'; setTimeout(function(){b.textContent='Add alerts to calendar';},2000);
+  }catch(e){ $('a-note').textContent='Could not build the file: '+e.message; }
+};
+
+function whoBar(){
+  $('idbar').style.display=ROLE?'block':'none';
+  $('claim').style.display=ROLE?'none':'block';
+  $('whohint').innerHTML=!ROLE?'':
+    (who===ROLE
+      ? 'Signed in as <b>'+ROLE+'</b>. Entries are signed with this account.'
+      : 'Entering on <b>'+who+'</b>&rsquo;s behalf. The row is tagged second-hand and stays under your account &mdash; '+
+        (uidOf(who)?'her own entry for the same day will take precedence over it.':'she has not claimed an account yet.'));
+}
+async function claim(role){
+  if(!SB||!UID) return;
+  var taken=uidOf(role);
+  if(taken&&taken!==UID){ $('claimerr').innerHTML=
+    '<b>'+role+' is already taken by the other account.</b> Pick the other one.'; return; }
+  var r=await SB.from('profiles').upsert({id:UID,role:role});
+  if(r.error){ $('claimerr').textContent='Could not save that: '+r.error.message; return; }
+  await loadRoles(); paintWho(); whoBar(); await pull();
+}
+Array.prototype.forEach.call(document.querySelectorAll('#claim .people button'),function(b){
+  b.onclick=function(){ claim(b.dataset.c); };
+});
+$('signout').onclick=function(){ if(SB) SB.auth.signOut(); };
+/* ---------- auth + realtime ---------- */
+function gate(show,msg){
+  $('gate').style.display=show?'block':'none';
+  $('app').style.display=show?'none':'block';
+  if(msg!==undefined) $('g-msg').innerHTML=msg;
+}
+async function afterAuth(u){
+  UID=u.id; await loadRoles(); gate(false); paintWho(); whoBar(); await pull();
+  SB.channel('all').on('postgres_changes',{event:'*',schema:'public'},function(){ pull(); }).subscribe();
+  $('status').innerHTML='Signed in as <b>'+(u.email||'')+'</b>'+(ROLE?' &middot; '+ROLE:'')+
+    '. Rows are stamped with your account, so attribution cannot drift.';
+}
+$('g-in').onclick=async function(){
+  var e=$('g-email').value.trim(), p=$('g-pass').value, b=this;
+  if(!e||!p){ $('g-msg').textContent='Email and password, both.'; return; }
+  b.textContent='Signing in…'; b.disabled=true;
+  var r=await SB.auth.signInWithPassword({email:e,password:p});
+  b.textContent='Sign in'; b.disabled=false;
+  if(r.error){ $('g-msg').textContent=r.error.message; return; }
+  afterAuth(r.data.user);
+};
+$('g-up').onclick=async function(){
+  var e=$('g-email').value.trim(), p=$('g-pass').value, b=this;
+  if(!e||p.length<8){ $('g-msg').textContent='Email, and a password of at least 8 characters.'; return; }
+  b.textContent='Creating…'; b.disabled=true;
+  var r=await SB.auth.signUp({email:e,password:p});
+  b.textContent='Create an account'; b.disabled=false;
+  if(r.error){ $('g-msg').textContent=r.error.message; return; }
+  if(r.data.session) afterAuth(r.data.user);
+  else $('g-msg').innerHTML='<b>Check your email.</b> Confirm the address, then sign in.';
+};
+(function(){
+  if(!window.supabase){ gate(true,'<b>Database client did not load.</b> Check the connection and reload.'); return; }
+  SB=window.supabase.createClient(SB_URL,SB_KEY);
+  SB.auth.getSession().then(function(r){
+    if(r.data&&r.data.session) afterAuth(r.data.session.user); else gate(true,'');
+  });
+  SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ UID=null; ROLE=null; gate(true,''); } });
+})();
+</script>
+</body>
+</html>
