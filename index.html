@@ -32,11 +32,16 @@
   --f:'Sora',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;padding:0;background:var(--bg)}
-body{color:var(--ink);font-family:var(--f);font-size:16px;line-height:1.5;
-  max-width:540px;margin:0 auto;padding:0 18px 100px;-webkit-font-smoothing:antialiased;
+html{margin:0;padding:0;background:var(--bg);min-height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f);font-size:16px;line-height:1.5;
+  max-width:540px;margin:0 auto;-webkit-font-smoothing:antialiased;
+  min-height:100dvh;
+  padding-top:calc(env(safe-area-inset-top, 0px) + 6px);
+  padding-right:calc(env(safe-area-inset-right, 0px) + 18px);
+  padding-bottom:calc(env(safe-area-inset-bottom, 0px) + 100px);
+  padding-left:calc(env(safe-area-inset-left, 0px) + 18px);
   font-variant-numeric:tabular-nums}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+body::before{content:"";position:fixed;inset:-1px;z-index:-1;pointer-events:none;
   background:
     radial-gradient(900px 480px at 88% -8%, var(--glow1), transparent 62%),
     radial-gradient(760px 420px at 4% 102%, var(--glow2), transparent 60%),
@@ -315,19 +320,19 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="lab"><i></i><span>Setup</span></div>
   <div class="panel">
     <div class="ctl"><label for="c-date">Session date</label><input type="date" id="c-date"></div>
-    <div class="ctl"><label for="c-t0">First dose</label><input type="time" id="c-t0" value="17:00"></div>
+    <div class="ctl"><label for="c-t0">Time of first dose</label><input type="time" id="c-t0" value="17:00"></div>
     <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
-    <div class="ctl"><label for="c-v1">Dose 1 form</label><select id="c-v1">
+    <div class="ctl"><label for="c-v1">How you’re taking it</label><select id="c-v1">
       <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
-    <div class="ctl"><label for="c-d2">Dose 2, +60 min</label><input type="number" id="c-d2" value="100" inputmode="numeric"></div>
-    <div class="ctl"><label for="c-v2">Dose 2 form</label><select id="c-v2">
+    <div class="ctl"><label for="c-d2">Dose 2 (one hour later)</label><input type="number" id="c-d2" value="100" inputmode="numeric"></div>
+    <div class="ctl"><label for="c-v2">How you’re taking it</label><select id="c-v2">
       <option>Gummies</option><option selected>Liquid softgel</option><option>Capsule</option></select></div>
     <div class="ctl"><label>Bump</label><button class="tg on" id="c-bump" role="switch" aria-checked="true" aria-label="Bump"></button></div>
     <div class="ctl" id="c-br1"><label for="c-bt">Bump at</label><input type="time" id="c-bt" value="20:00"></div>
     <div class="ctl" id="c-br2"><label for="c-bd">Bump amount</label><input type="number" id="c-bd" value="50" inputmode="numeric"></div>
-    <div class="ctl" id="c-br3"><label for="c-vehicle">Bump form</label><select id="c-vehicle">
+    <div class="ctl" id="c-br3"><label for="c-vehicle">How you’re taking it</label><select id="c-vehicle">
       <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
-    <div class="ctl"><label>On retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
+    <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
   <div class="hint" id="setupstate"></div>
   <div class="sum" id="dosesum"></div>
@@ -342,15 +347,15 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
 
   <div class="lab"><i></i><span>Alerts</span></div>
   <div class="panel">
-    <div class="ctl"><label for="a-lead">Warn me ahead by</label><select id="a-lead">
+    <div class="ctl"><label for="a-lead">Remind me this early</label><select id="a-lead">
       <option value="0">On time</option><option value="5" selected>5 min</option>
       <option value="10">10 min</option><option value="15">15 min</option></select></div>
     <div class="ctl"><label>Include recovery days</label>
       <button class="tg on" id="a-rec" role="switch" aria-checked="true" aria-label="Include recovery days"></button></div>
   </div>
   <button class="btn" id="a-make">Add alerts to calendar</button>
-  <div class="hint" id="a-note">Built from the times above, one notification per item. Open it and iOS fires them with the phone locked. Re-run after changing the dose time, and delete the old events first.</div>
-  <button class="btn g" id="reset">Clear today&rsquo;s check-offs</button>
+  <div class="hint" id="a-note">This makes a calendar file with a reminder for every item. Open it and your phone will alert you even when it’s locked. If you change the dose time, delete the old reminders and tap this again.</div>
+  <button class="btn g" id="reset">Start today over</button>
 </section>
 
 <section id="v-recovery">
@@ -366,57 +371,56 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="lab" data-p="rec"><i></i><span>Log the day</span></div>
   <div class="panel">
     <div class="ctl"><label for="d-date">Date</label><input type="date" id="d-date"></div>
-    <div class="fl">Day relative to session</div><div class="sg" id="d-day"></div>
-    <div class="ctl"><label for="d-rt">Reaction, mean ms</label><input type="number" id="d-rt" inputmode="decimal"></div>
-    <div class="ctl"><label for="d-slow">Slowest 10%</label><input type="number" id="d-slow" inputmode="decimal"></div>
-    <div class="ctl"><label for="d-jump">Jump, cm</label><input type="number" id="d-jump" step="0.1" inputmode="decimal"></div>
-    <div class="ctl"><label for="d-hr">Resting HR</label><input type="number" id="d-hr" inputmode="numeric"></div>
-    <div class="ctl"><label for="d-sleep">Sleep, hrs</label><input type="number" id="d-sleep" step="0.1" inputmode="decimal"></div>
-    <div class="ctl"><label for="d-rem">Time to REM, min</label><input type="number" id="d-rem" inputmode="numeric"></div>
+    <div class="fl">Which day is this?</div><div class="sg" id="d-day"></div>
+    <div class="ctl"><label for="d-rt">Reaction time (ms)</label><input type="number" id="d-rt" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-slow">Your slowest taps (ms)</label><input type="number" id="d-slow" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-jump">Jump height (cm)</label><input type="number" id="d-jump" step="0.1" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-hr">Resting heart rate</label><input type="number" id="d-hr" inputmode="numeric"></div>
+    <div class="ctl"><label for="d-sleep">Hours slept</label><input type="number" id="d-sleep" step="0.1" inputmode="decimal"></div>
+    <div class="ctl"><label for="d-rem">Minutes to first dream sleep</label><input type="number" id="d-rem" inputmode="numeric"></div>
     <div class="fl">Training yesterday</div><div class="sg" id="d-tload"></div>
     <div class="fl">Mood</div><div class="sc" id="d-mood"></div>
     <div class="fl">Energy</div><div class="sc" id="d-energy"></div>
     <div class="fl">Motivation</div><div class="sc" id="d-motiv"></div>
     <div class="fl">Libido</div><div class="sc" id="d-libido"></div>
-    <div class="fl">Top set today</div><div class="wd"><input id="d-set" placeholder="Incline press 225 x 8"></div>
+    <div class="fl">Best set today</div><div class="wd"><input id="d-set" placeholder="Incline press 225 x 8"></div>
     <div class="fl">Notes</div><div class="wd"><textarea id="d-notes"></textarea></div>
   </div>
   <div class="msg" id="d-err"></div>
-  <button class="btn t" id="dsave">Save day</button>
+  <button class="btn t" id="dsave">Save this day</button>
   <button class="btn r" id="ddel" style="display:none">Delete this entry</button>
 </section>
 
 <section id="v-tests">
   <div class="lab" data-p="test"><i></i><span>Reaction test</span></div>
-  <div class="hint">Thirty trials, about three minutes. Wait, then tap the instant the field lights. Same time each morning, before caffeine.</div>
+  <div class="hint">Thirty taps, about three minutes. Wait for the screen to light up, then tap as fast as you can. Do it at the same time each morning, before coffee.</div>
   <div id="pad"><div class="n" id="padn">Ready</div><div class="c" id="padc">Tap to begin</div></div>
   <div class="read" id="read" style="display:none">
-    <div><b id="r-mean">—</b><span>mean ms</span></div>
-    <div><b id="r-med">—</b><span>median</span></div>
-    <div><b id="r-slow">—</b><span>slowest 10%</span></div>
-    <div><b id="r-fs">—</b><span>false / void</span></div>
+    <div><b id="r-mean">—</b><span>average</span></div>
+    <div><b id="r-med">—</b><span>typical</span></div>
+    <div><b id="r-slow">—</b><span>slowest</span></div>
+    <div><b id="r-fs">—</b><span>early taps</span></div>
   </div>
   <div class="hint" id="r-vs" style="display:none"></div>
-  <button class="btn b" id="pvtsave" style="display:none">Carry into today&rsquo;s entry</button>
+  <button class="btn b" id="pvtsave" style="display:none">Add this to today&rsquo;s entry</button>
 
-  <div class="lab" data-p="test"><i></i><span>Departure from baseline</span></div>
+  <div class="lab" data-p="test"><i></i><span>How this compares to normal</span></div>
   <div class="panel"><div class="ctl"><label for="pick">Session</label><select id="pick"></select></div></div>
   <div class="panel" id="strips" style="margin-top:9px"></div>
 
-  <div class="lab" data-p="test"><i></i><span>Record</span></div>
-  <div class="panel"><div class="ctl"><label id="revtxt">Your rows only</label>
+  <div class="lab" data-p="test"><i></i><span>Everything you&rsquo;ve logged</span></div>
+  <div class="panel"><div class="ctl"><label id="revtxt">Only mine</label>
     <button class="tg" id="blind" role="switch" aria-checked="false" aria-label="Show both people"></button></div></div>
   <div class="scroll" style="margin-top:9px"><table id="t-daily"></table></div>
-  <button class="btn g" id="copy">Copy everything as CSV</button>
+  <button class="btn g" id="copy">Copy it all to the clipboard</button>
   <button class="btn r" id="signout">Sign out</button>
   <div class="hint" id="status">Connecting&hellip;</div>
 </section>
 
 </div>
 <footer>
-  Reaction test — 30 trials, 2–10 s interval, stimulus timed after paint, no lapse threshold.
-  Jump from My Jump Lab. REM latency and resting HR from the watch.
-  Check-offs and entries are per person; rows stay separated by default.
+  Track a session, check off what you take and when, and log how you feel in the days after.
+  Each person signs in with their own email. What you enter stays yours.
 </footer>
 
 <script>
@@ -584,12 +588,12 @@ var EV={
   note:'One 2004 paper argues hyperthermia is neither necessary nor sufficient, so this is a contested literature — but the intervention costs nothing.',
   src:'https://www.jneurosci.org/content/18/13/5086'},
  dose1:{dose:'See the setup panel. Onset by form: gummies about 150 min, capsule 100, liquid softgel 30 — plus the retatrutide delay on solids.',
-  why:'Splitting the first dose lets the slower vehicle arrive while the faster one is still up, which widens the plateau instead of stacking two peaks.',
+  why:'Splitting the first dose lets the slower form kick in while the faster one is still going, which widens the plateau instead of stacking two peaks.',
   tier:'A',fig:'Published ranges for context: Erowid puts strong at 60–120 mg and heavy at 120+. PsychonautWiki puts strong at 80–100 and heavy at 100+.',
-  note:'Your onset figures come from single sessions — one data point per vehicle. They will firm up as you log.'},
+  note:'Your onset figures come from single sessions — one data point per form. They will firm up as you log.'},
  dose2:{dose:'See the setup panel.',
-  why:'The fast vehicle. A liquid in a drink largely slips past the gastric slowing that holds up solids.',
-  tier:'A',fig:'The 30-minute onset is your own report from one session. Nobody has published route or vehicle comparisons for this compound.',
+  why:'The fastest way to take it. A liquid in a drink largely slips past the gastric slowing that holds up solids.',
+  tier:'A',fig:'The 30-minute onset is your own report from one session. Nobody has published comparisons between forms for this compound.',
   note:'Half-life is 6.5 hours, from the one human case report that exists.',
   src:'https://www.sciencedirect.com/science/article/abs/pii/S0196064416300038'},
  bump:{dose:'Same as or less than the first dose. On the clock, not when it fades.',
@@ -772,7 +776,7 @@ function rows(target,list,timed,count){
       bar.appendChild(more); card.appendChild(bar);
       var det=el('div','det');
       det.innerHTML='<div class="dl">Dose</div><div class="dv">'+info.dose+'</div>'+
-        '<div class="dl">Why it is here</div><div class="dv">'+info.why+'</div>'+
+        '<div class="dl">Why you&rsquo;re taking it</div><div class="dv">'+info.why+'</div>'+
         '<div class="dl">Evidence</div><div class="dv">'+info.fig+'</div>'+
         (info.note?'<div class="dl">Watch</div><div class="dv">'+info.note+'</div>':'')+
         (info.src?'<a class="sl" href="'+info.src+'">Source</a>':'');
@@ -814,8 +818,8 @@ function protocol(){
   var o1=onset(0,$('c-v1').value), o2=onset(60,$('c-v2').value);
   var first=Math.min(o1,o2), slowest=Math.max(o1,o2);
   $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b> — '+d1+' + '+d2+(bd?' + '+bd:'')+
-    '. First effects around <b>'+clock(first)+'</b>, the slower vehicle arrives <b>'+clock(slowest)+
-    '</b>, full peak around <b>'+clock(pk)+'</b>. Protocol closes <b>'+clock(pk+300)+'</b>.'+
+    '. First effects around <b>'+clock(first)+'</b>, the slower one kicks in <b>'+clock(slowest)+
+    '</b>, strongest around <b>'+clock(pk)+'</b>. Last item of the night is at <b>'+clock(pk+300)+'</b>.'+
     ($('c-reta').classList.contains('on')?
       ' Retatrutide is holding the solids back about '+RETA[$('c-v1').value]+
       ' min; the liquid mostly slips past it.':'')+
@@ -831,8 +835,8 @@ function protocol(){
     ' past your 1&ndash;2 AM line.</b> The gummies are what push it &mdash; they do not land until '+
     clock(onset(0,$('c-v1').value))+'. Lead with the softgel, or start earlier. Sleep is the lever you keep saying matters most.<br><br>':'';
   $('gates').innerHTML=lateMsg+(gap!==null&&gap<14?
-    '<b>'+gap+' days since your last session.</b> Tolerance is real at this interval and a flatter, shorter session is the most likely outcome. Do not correct with dose — at a 24-hour interval, 77% more plasma bought almost no extra effect.<br><br>':'')+
-    '<b>Two gates.</b> No 5-HTP from the night before through the session. No tyrosine the morning of — on board during, it may worsen the depletion rather than help.';
+    '<b>'+gap+' days since your last session.</b> That is soon. Expect this one to feel flatter and end sooner. Taking more will not fix it — when this was tested, a bigger dose this close together did almost nothing extra.<br><br>':'')+
+    '<b>Two things to skip.</b> No 5-HTP from the night before until the session is over. No tyrosine on the morning of — taken before a session it works against you rather than helping.';
   next();
 }
 function next(){
@@ -844,7 +848,7 @@ function next(){
   });
   var h=$('hero');
   if(!up){ h.className='hero idle'; $('h-next').textContent='Nothing outstanding';
-    $('h-cd').innerHTML='<small>Every timed item is checked off</small>'; return; }
+    $('h-cd').innerHTML='<small>All done for today</small>'; return; }
   h.className='hero';
   var diff=eventDate(up.off).getTime()-now;
   $('h-next').textContent=up.n;
@@ -907,7 +911,7 @@ function build(id,opts){
 function paint(id){ Array.prototype.forEach.call($(id).children,function(b){
   b.classList.toggle('on',picks[id]===b.dataset.val); }); }
 function ten(id){ var o=[]; for(var i=1;i<=10;i++)o.push([String(i),String(i)]); build(id,o); }
-build('d-day',[['B','B'],['0','0'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7']]);
+build('d-day',[['B','Normal'],['0','Session'],['1','1'],['2','2'],['3','3'],['4','4'],['5','5'],['6','6'],['7','7']]);
 build('d-tload',[['None','None'],['Light','Light'],['Moderate','Mod'],['Hard','Hard']]);
 ['d-mood','d-energy','d-motiv','d-libido'].forEach(ten);
 
@@ -939,10 +943,10 @@ function finish(){
   var base=daily.filter(function(r){return r.person===who&&r.day==='B'&&typeof r.pvtRT==='number';});
   if(base.length>=3){
     var bm=mean(base.map(function(r){return r.pvtRT;})), d=Math.round(mn-bm);
-    $('r-vs').innerHTML='<b>Against your own baseline.</b> '+Math.round(bm)+' ms across '+base.length+
+    $('r-vs').innerHTML='<b>Compared with your normal days.</b> '+Math.round(bm)+' ms across '+base.length+
       ' baseline days. Today is '+(d>=0?'+':'')+d+' ms.';
   }else{
-    $('r-vs').innerHTML='<b>No baseline yet.</b> Log three days marked B with no session in them. Until then there is nothing to compare against.';
+    $('r-vs').innerHTML='<b>Nothing to compare against yet.</b> Log three ordinary days &mdash; days with no session &mdash; and mark each one Normal. After that this will tell you how a day stacks up.';
   }
   $('r-vs').style.display='block';
   if(canWrite()) SB.from('pvt_runs').insert(stamp({trials_ms:tr,mean_ms:mn,median_ms:md,
@@ -1006,7 +1010,7 @@ ds.onclick=function(){
   var n=0; for(var k in r){ if(['date','day','notes'].indexOf(k)<0&&r[k]!==null&&r[k]!=='') n++; }
   if(!n){ e.textContent='Record at least one measurement.'; e.style.display='block'; return; }
   r.sessionDate=owning(r.date,r.day);
-  if(r.day!=='B'&&!r.sessionDate){ e.textContent='No session logged on or before this date. Save the session first.'; e.style.display='block'; return; }
+  if(r.day!=='B'&&!r.sessionDate){ e.textContent='There&rsquo;s no session saved on or before this date. Set up the session first.'; e.style.display='block'; return; }
   if(r.sessionDate){
     var g=Math.round((new Date(r.date)-new Date(r.sessionDate))/86400000);
     if(g!==Number(r.day)){ e.textContent='That date is '+g+' day'+(g===1?'':'s')+' after the '+
@@ -1049,11 +1053,11 @@ function sdev(a,m){ return a.length>1?Math.sqrt(a.map(function(v){return (v-m)*(
 function strips(){
   var e=$('strips'), mine=daily.filter(function(r){return r.person===who;});
   var base=mine.filter(function(r){return r.day==='B';});
-  if(base.length<3){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">Needs three baseline days marked B. You have '+
-    base.length+'. Every comparison here is measured from them.</span></div>'; return; }
+  if(base.length<3){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">Log three ordinary days marked Normal first. You have '+
+    base.length+'. Everything here is measured against those.</span></div>'; return; }
   var pk=$('pick').value, days={};
   mine.forEach(function(r){ if(r.sessionDate===pk&&r.day&&r.day!=='B') days[r.day]=r; });
-  if(!Object.keys(days).length){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">No days logged against that session yet.</span></div>'; return; }
+  if(!Object.keys(days).length){ e.innerHTML='<div class="strip"><span style="font-size:13.5px;color:#666C8C">You have not logged any days after that session yet.</span></div>'; return; }
   e.innerHTML=METRICS.map(function(m){
     var bv=base.map(function(r){return r[m[0]];}).filter(function(v){return typeof v==='number';});
     if(bv.length<2) return '';
@@ -1092,7 +1096,7 @@ function render(){
   t.innerHTML=d.length?h+d.map(function(r){
     return '<tr>'+DCOL.map(function(c){return '<td>'+esc(r[c[0]])+'</td>';}).join('')+
       (r.uid===UID?'<td><button data-d="'+esc(r.date)+'">delete</button></td>':
-        '<td>'+(r.secondHand?'2nd hand':'')+'</td>')+'</tr>';
+        '<td>'+(r.secondHand?'entered by other':'')+'</td>')+'</tr>';
   }).join(''):h+'<tr><td colspan="'+(DCOL.length+1)+'">nothing yet</td></tr>';
   Array.prototype.forEach.call(t.querySelectorAll('button'),function(b){
     b.onclick=function(){
@@ -1109,7 +1113,7 @@ $('pick').onchange=strips;
 $('blind').onclick=function(){
   blind=!blind; this.classList.toggle('on',!blind);
   this.setAttribute('aria-checked',!blind?'true':'false');
-  $('revtxt').textContent=blind?'Your rows only':'Both — scores can anchor each other';
+  $('revtxt').textContent=blind?'Only mine':'Both of us';
   render();
 };
 $('copy').onclick=function(){
@@ -1227,7 +1231,7 @@ $('g-up').onclick=async function(){
   else $('g-msg').innerHTML='<b>Check your email.</b> Confirm the address, then sign in.';
 };
 (function(){
-  if(!window.supabase){ gate(true,'<b>Database client did not load.</b> Check the connection and reload.'); return; }
+  if(!window.supabase){ gate(true,'<b>Couldn&rsquo;t connect.</b> Check your internet and reload the page.'); return; }
   SB=window.supabase.createClient(SB_URL,SB_KEY);
   SB.auth.getSession().then(function(r){
     if(r.data&&r.data.session) afterAuth(r.data.session.user); else gate(true,'');
