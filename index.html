@@ -50,8 +50,8 @@ body::before{content:"";position:fixed;inset:-1px;z-index:-1;pointer-events:none
     radial-gradient(760px 420px at 4% 102%, var(--glow2), transparent 60%),
     var(--bg)}
 
-/* Jake — cooler, harder: steel into cyan */
-body[data-u="Jake"]{
+/* you — cooler, harder: steel into cyan */
+body[data-u="me"]{
   --viol1:#3F6FF0; --viol2:#22D3EE;
   --teal1:#0EA47F; --teal2:#2BD4A0;
   --blue1:#3F6FF0; --blue2:#22D3EE;
@@ -59,8 +59,8 @@ body[data-u="Jake"]{
   --glow1:rgba(63,111,240,.22); --glow2:rgba(34,211,238,.12);
   --bg:#080A12; --bg2:#0C1020; --card:#141A2B; --card2:#1C2438; --line:#232D47;
 }
-/* Abbie — warmer, softer: rose into blush */
-body[data-u="Abbie"]{
+/* your partner — warmer, softer: rose into blush */
+body[data-u="them"]{
   --viol1:#D14A8E; --viol2:#F2A2C0;
   --teal1:#2FB89A; --teal2:#6EE7B7;
   --blue1:#B957C9; --blue2:#F2A2C0;
@@ -86,9 +86,9 @@ body[data-u="Abbie"]{
 .people button{flex:1;font-family:var(--f);font-size:16px;font-weight:700;letter-spacing:-.02em;
   color:var(--sec);background:var(--card);border:1.5px solid var(--line);border-radius:14px;
   padding:14px 0;position:relative}
-.people button[data-c="Jake"].on,.people button[data-w="Jake"].on{color:#050810;border-color:transparent;
+#claim .people button.on,#whobtns button:first-child.on{color:#050810;border-color:transparent;
   background:linear-gradient(135deg,#3F6FF0,#22D3EE)}
-.people button[data-c="Abbie"].on,.people button[data-w="Abbie"].on{color:#1A0A14;border-color:transparent;
+#whobtns button:last-child:not(:first-child).on{color:#1A0A14;border-color:transparent;
   background:linear-gradient(135deg,#D14A8E,#F2A2C0)}
 .people button::after{content:"";position:absolute;left:50%;transform:translateX(-50%);
   bottom:-9px;width:0;height:0;border:5px solid transparent}
@@ -292,17 +292,33 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
 </div>
 
 <div id="claim" style="display:none">
-  <div class="sum"><b>Which one of you is this?</b> Pick once &mdash; everything you save gets tied to it, so it can&rsquo;t be changed later.</div>
-  <div class="people" role="group" aria-label="Claim your identity">
-    <button data-c="Jake">I am Jake</button><button data-c="Abbie">I am Abbie</button>
+  <div class="sum"><b>Set up your account.</b> Deep Connect works as a pair &mdash; two people,
+  one shared history, visible only to the two of you.</div>
+  <div class="people" role="group" aria-label="Setup choice">
+    <button data-m="new" class="on">I&rsquo;m setting this up</button><button data-m="join">My partner sent me a code</button>
   </div>
+  <div class="panel" id="m-new" style="margin-top:10px">
+    <div class="ctl"><label for="n-me">Your name</label><input id="n-me" placeholder="First name" maxlength="40"></div>
+    <div class="ctl"><label for="n-them">Your partner&rsquo;s name</label><input id="n-them" placeholder="First name" maxlength="40"></div>
+  </div>
+  <div class="panel" id="m-join" style="margin-top:10px;display:none">
+    <div class="ctl"><label for="j-code">Their code</label><input id="j-code" placeholder="6 letters" maxlength="6" autocapitalize="characters"></div>
+    <div class="ctl"><label for="j-me">Your name</label><input id="j-me" placeholder="First name" maxlength="40"></div>
+  </div>
+  <button class="btn t" id="claimgo">Continue</button>
   <div class="hint" id="claimerr"></div>
 </div>
 
+<div id="codebox" style="display:none">
+  <div class="sum"><b id="codemsg"></b></div>
+  <div class="hero idle" style="margin-bottom:12px"><div class="k">THEIR CODE</div>
+    <div class="v" id="codeval" style="letter-spacing:.14em"></div></div>
+  <button class="btn g" id="codecopy">Copy the code</button>
+  <button class="btn" id="codedone">Done</button>
+</div>
+
 <div id="idbar" style="display:none">
-  <div class="people" role="group" aria-label="Whose data">
-    <button data-w="Jake">Jake</button><button data-w="Abbie">Abbie</button>
-  </div>
+  <div class="people" role="group" aria-label="Whose data" id="whobtns"></div>
   <div class="hint" id="whohint"></div>
 </div>
 
@@ -410,6 +426,14 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="panel"><div class="ctl"><label for="pick">Session</label><select id="pick"></select></div></div>
   <div class="panel" id="strips" style="margin-top:9px"></div>
 
+  <div id="codewrap" style="display:none">
+    <div class="lab" data-p="test"><i></i><span>Invite your partner</span></div>
+    <div class="hint">She signs up on this same link, taps &ldquo;My partner sent me a code&rdquo;,
+      and enters this. Then you both see the same history.</div>
+    <div class="hero idle"><div class="k">YOUR CODE</div>
+      <div class="v" id="mycode" style="letter-spacing:.14em">&mdash;</div></div>
+  </div>
+
   <div class="lab" data-p="test"><i></i><span>Everything you&rsquo;ve logged</span></div>
   <div class="panel"><div class="ctl"><label id="revtxt">Only mine</label>
     <button class="tg" id="blind" role="switch" aria-checked="false" aria-label="Show both people"></button></div></div>
@@ -428,16 +452,33 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
 <script>
 const SB_URL='https://kobqqqenjdpmnvlhhlgo.supabase.co';
 const SB_KEY='sb_publishable_OqfzVMWOZjTjq-C0mdB8zQ_9e_cv-QY';
-var SB=null, UID=null, ROLE=null, roles={};
-var who='Jake', proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
+var SB=null, UID=null, ME=null, COUPLE=null, PEOPLE=[];
+var who=null, proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
+function meRow(){ return PEOPLE.filter(function(p){return p.id===UID;})[0]||null; }
+function personOf(id){ return PEOPLE.filter(function(p){return p.id===id;})[0]||null; }
+function nameOf(id){ var p=personOf(id); return p?p.display_name:''; }
+function myName(){ return nameOf(UID); }
+function theirRow(){ return PEOPLE.filter(function(p){return p.id!==UID;})[0]||null; }
+/* their name, or the one you typed for them before they joined */
+function theirName(){
+  var t=theirRow(); if(t) return t.display_name;
+  var m=meRow(); return (m&&m.partner_name)||'';
+}
+function theirId(){ var t=theirRow(); return t?t.id:null; }
+function paired(){ return !!theirRow(); }
 function $(i){return document.getElementById(i);}
 function el(t,c,h){var e=document.createElement(t); if(c)e.className=c; if(h!==undefined)e.innerHTML=h; return e;}
-function uidOf(role){ for(var u in roles){ if(roles[u]===role) return u; } return null; }
-function stamp(o){ o.user_id=UID; o.subject=who; o.entered_by=ROLE; o.second_hand=(who!==ROLE); return o; }
+function setUp(){ return !!(ME&&COUPLE); }
+function stamp(o){
+  o.user_id=UID; o.couple_id=COUPLE;
+  o.subject_id=who; o.entered_by_id=UID;
+  o.subject=nameOf(who)||theirName()||'?'; o.entered_by=myName()||'?';
+  o.second_hand=(who!==UID);
+  return o; }
 function pick(rows,dk){
   var m={};
   (rows||[]).forEach(function(r){
-    var k=r.subject+'|'+r[dk], p=m[k];
+    var k=(r.subject_id||r.subject)+'|'+r[dk], p=m[k];
     if(!p){ m[k]=r; return; }
     if(!r.second_hand && p.second_hand){ m[k]=r; return; }
     if(r.second_hand && !p.second_hand) return;
@@ -451,7 +492,7 @@ function dayToRow(r){ return stamp({
   sleep_hrs:r.sleep, rem_latency_min:r.rem, train_load:r.trainLoad, top_set:r.topSet,
   mood:r.mood, energy:r.energy, motivation:r.motivation, libido:r.libido, notes:r.notes }); }
 function rowToDay(x){ return {
-  date:x.log_date, day:x.day_index, sessionDate:x.session_date, person:x.subject,
+  date:x.log_date, day:x.day_index, sessionDate:x.session_date, person:x.subject_id||x.subject, personName:x.subject,
   uid:x.user_id, secondHand:x.second_hand, at:x.updated_at||x.created_at,
   pvtRT:x.pvt_mean_ms, pvtSlow:x.pvt_slow10_ms, jump:x.jump_cm, restHR:x.resting_hr,
   sleep:x.sleep_hrs, rem:x.rem_latency_min, trainLoad:x.train_load, topSet:x.top_set,
@@ -463,7 +504,7 @@ function setupToRow(o){ return stamp({
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
   days_since_last:o.gap }); }
 function rowToSetup(x){ return {
-  date:x.session_date, person:x.subject, uid:x.user_id, secondHand:x.second_hand,
+  date:x.session_date, person:x.subject_id||x.subject, personName:x.subject, uid:x.user_id, secondHand:x.second_hand,
   at:x.updated_at||x.created_at, gap:x.days_since_last, stack:x.stack,
   'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
@@ -478,16 +519,20 @@ async function pull(){
   sess =pick(b.data||[],'session_date').map(rowToSetup);
   checks={};
   (c.data||[]).forEach(function(x){
-    var k=x.subject+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
+    var k=(x.subject_id||x.subject)+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
   loadSetup(); protocol(); if(!dirtyD) loadDaily(); render();
 }
-async function loadRoles(){
+async function loadPeople(){
   var r=await SB.from('profiles').select('*');
-  roles={}; (r.data||[]).forEach(function(p){ roles[p.id]=p.role; });
-  ROLE=roles[UID]||null; if(ROLE&&!proxy) who=ROLE;
+  PEOPLE=(r.data||[]).slice().sort(function(a,b){
+    return (a.id===UID?0:1)-(b.id===UID?0:1); });
+  var m=meRow();
+  ME=m; COUPLE=m?m.couple_id:null;
+  if(m && !proxy) who=UID;
+  if(who && !personOf(who) && who!==UID) who=UID;
 }
 /* ---------- protocol ---------- */
-/* onset minutes by vehicle, from Jake's own sessions.
+/* onset minutes by form, from your own sessions.
    Retatrutide delays gastric emptying of solids; a liquid largely bypasses it. */
 var ONSET={'Gummies':150,'Capsule':100,'Liquid softgel':30};
 var RETA ={'Gummies':45, 'Capsule':30, 'Liquid softgel':5};
@@ -518,7 +563,7 @@ function eventDate(off){
   d.setMinutes(d.getMinutes()+t0+(off||0)); return d;
 }
 function PRE(){ return [
- {id:'gf',off:-60,n:'Grapefruit juice',d:'You 10 fl oz · Abbie 16 fl oz. Diluted is fine — finish all of it.'},
+ {id:'gf',off:-60,n:'Grapefruit juice',d:'10 fl oz if you are over 180 lb, 16 fl oz if under. Diluted is fine — finish all of it.'},
  {id:'nd',off:-60,n:'Nerve Defend ×3',d:'ALA 600 · NAC 600 · ALCAR 500 · B6. Pre-load only — peri-session coverage is the hourly doses.'},
  {id:'tad',off:-30,n:'Tadalafil 20 mg',d:'Needs two hours to come up.'},
  {id:'pt',off:-30,n:'PT-141 2 mg',d:'Nausea window lands well before peak.'},
@@ -567,7 +612,7 @@ var TRAIN=[{id:'t1',n:'Day 1 — walk only'},{id:'t2',n:'Day 2 — light'},{id:'
 /* ---------- evidence cards ----------
    tier: M measured in humans · P mechanism, no outcome trial · A assumption · N none */
 var EV={
- gf:{dose:'10 fl oz you · 16 fl oz Abbie, 60 min before. Diluted is fine.',
+ gf:{dose:'10 fl oz over 180 lb, 16 fl oz under, 60 min before. Diluted is fine.',
   why:'Furanocoumarins irreversibly knock out intestinal CYP3A4, so the same milligrams produce more exposure.',
   tier:'P',fig:'Human data exists but for other drugs — grapefruit raised felodipine AUC 93%. 5-MAPB runs through CYP1A2 and 2D6 as well as 3A4, so inhibiting 3A4 captures only part of its clearance. The size of the effect for this compound is unverified.',
   note:'One serving inside 4 hours gives the maximal effect; roughly half the inhibition is still present at 10 hours. More juice does not add more.',
@@ -744,7 +789,7 @@ function saveSetup(){
 
 /* ---------- check-offs ---------- */
 function key(){ return who+'|'+$('c-date').value; }
-function canWrite(){ return !!(SB&&UID&&ROLE); }
+function canWrite(){ return !!(SB&&UID&&COUPLE); }
 function ck(id){ return !!(checks[key()]||{})[id]; }
 function toggle(id){
   var k=key(); checks[k]=checks[k]||{};
@@ -894,7 +939,7 @@ Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(
 Array.prototype.forEach.call(document.querySelectorAll('#idbar .people button'),function(b){
   b.onclick=function(){
     if(who===b.dataset.w) return;
-    who=b.dataset.w; proxy=(ROLE&&who!==ROLE);
+    who=b.dataset.w; proxy=(who!==UID);
     paintWho(); whoBar(); dirtyD=false; loadSetup(); loadSetup(); protocol(); loadDaily(); render();
   };
 });
@@ -1180,35 +1225,88 @@ $('a-make').onclick=function(){
 };
 
 function paintWho(){
-  document.body.setAttribute('data-u', who);
-  Array.prototype.forEach.call(document.querySelectorAll('#idbar .people button'),function(b){
+  document.body.setAttribute('data-u', who===UID?'me':'them');
+  Array.prototype.forEach.call(document.querySelectorAll('#whobtns button'),function(b){
     b.classList.toggle('on', b.dataset.w===who);
-  });
-  Array.prototype.forEach.call(document.querySelectorAll('#claim .people button'),function(b){
-    b.classList.toggle('on', b.dataset.c===ROLE);
   });
 }
 function whoBar(){
-  $('idbar').style.display=ROLE?'block':'none';
-  $('claim').style.display=ROLE?'none':'block';
-  $('whohint').innerHTML=!ROLE?'':
-    (who===ROLE
-      ? 'You are <b>'+ROLE+'</b>. Everything you save is yours.'
-      : 'Filling this in for <b>'+who+'</b>. It is saved under your account and marked as entered by you &mdash; '+
-        (uidOf(who)?'if she enters the same day herself, hers is the one that counts.':'she has not set up her account yet.'));
+  var ready=setUp();
+  $('idbar').style.display=ready?'block':'none';
+  $('claim').style.display=(ready||$('codebox').style.display==='block')?'none':'block';
+  if(!ready) return;
+
+  var box=$('whobtns'), mine=myName(), hers=theirName();
+  box.innerHTML='';
+  var a=el('button',null,esc(mine)); a.dataset.w=UID; box.appendChild(a);
+  if(hers){
+    var b=el('button',null,esc(hers));
+    b.dataset.w=theirId()||'__them'; box.appendChild(b);
+  }
+  Array.prototype.forEach.call(box.querySelectorAll('button'),function(btn){
+    btn.onclick=function(){
+      if(btn.dataset.w==='__them'){
+        $('whohint').innerHTML='<b>'+esc(hers)+' has not set up her account yet.</b> '+
+          'Send her the code under Tests and she can sign in on her own phone.';
+        return;
+      }
+      if(who===btn.dataset.w) return;
+      who=btn.dataset.w; proxy=(who!==UID);
+      paintWho(); whoBar(); dirtyD=false; loadSetup(); protocol(); loadDaily(); render();
+    };
+  });
+  paintWho();
+  $('whohint').innerHTML = who===UID
+    ? 'You are <b>'+esc(mine)+'</b>. Everything you save here is yours.'
+    : 'Filling this in for <b>'+esc(nameOf(who))+'</b>. It is marked as entered by you &mdash; '+
+      'if she logs the same day herself, hers is the one that counts.';
 }
-async function claim(role){
+async function setupAccount(mode){
   if(!SB||!UID) return;
-  var taken=uidOf(role);
-  if(taken&&taken!==UID){ $('claimerr').innerHTML=
-    '<b>'+role+' is already taken by the other account.</b> Pick the other one.'; return; }
-  var r=await SB.from('profiles').upsert({id:UID,role:role});
-  if(r.error){ $('claimerr').textContent='Could not save that: '+r.error.message; return; }
-  await loadRoles(); paintWho(); whoBar(); await pull();
+  var e=$('claimerr'); e.textContent='';
+  var b=$('claimgo'); b.disabled=true; b.textContent='Working\u2026';
+  try{
+    if(mode==='new'){
+      var r=await SB.rpc('create_couple',{my_name:$('n-me').value,their_name:$('n-them').value});
+      if(r.error) throw r.error;
+      var row=(r.data&&r.data[0])||{};
+      await loadPeople();
+      $('claim').style.display='none';
+      $('codemsg').innerHTML='You are set up. Give '+
+        (esc($('n-them').value.trim())||'your partner')+' this code so she can join you.';
+      $('codeval').textContent=row.invite_code||'';
+      $('codebox').style.display='block';
+    }else{
+      var j=await SB.rpc('join_couple',{code:$('j-code').value,my_name:$('j-me').value});
+      if(j.error) throw j.error;
+      await loadPeople(); $('claim').style.display='none';
+      gate(false); whoBar(); await pull();
+    }
+  }catch(err){ e.textContent=(err&&err.message)||'That did not work.'; }
+  b.disabled=false; b.textContent='Continue';
 }
 Array.prototype.forEach.call(document.querySelectorAll('#claim .people button'),function(b){
-  b.onclick=function(){ claim(b.dataset.c); };
+  b.onclick=function(){
+    Array.prototype.forEach.call(document.querySelectorAll('#claim .people button'),
+      function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    $('m-new').style.display =b.dataset.m==='new' ?'block':'none';
+    $('m-join').style.display=b.dataset.m==='join'?'block':'none';
+    $('claimerr').textContent='';
+  };
 });
+$('claimgo').onclick=function(){
+  var on=document.querySelector('#claim .people button.on');
+  setupAccount(on?on.dataset.m:'new');
+};
+$('codecopy').onclick=function(){
+  var t=$('codeval').textContent, b=this;
+  navigator.clipboard.writeText(t).then(function(){
+    b.textContent='Copied'; setTimeout(function(){b.textContent='Copy the code';},1800); });
+};
+$('codedone').onclick=async function(){
+  $('codebox').style.display='none'; gate(false); whoBar(); await pull();
+};
 $('signout').onclick=function(){ if(SB) SB.auth.signOut(); };
 /* ---------- auth + realtime ---------- */
 function gate(show,msg){
@@ -1216,11 +1314,21 @@ function gate(show,msg){
   $('app').style.display=show?'none':'block';
   if(msg!==undefined) $('g-msg').innerHTML=msg;
 }
+var SUBBED=false;
 async function afterAuth(u){
-  UID=u.id; await loadRoles(); gate(false); paintWho(); whoBar(); await pull();
-  SB.channel('all').on('postgres_changes',{event:'*',schema:'public'},function(){ pull(); }).subscribe();
-  $('status').innerHTML='Signed in as <b>'+(u.email||'')+'</b>'+(ROLE?' &middot; '+ROLE:'')+
-    '.';
+  UID=u.id;
+  await loadPeople();
+  gate(false);
+  whoBar();
+  if(!setUp()) return;              /* onboarding is showing; nothing to load yet */
+  await pull();
+  if(!SUBBED){ SUBBED=true;
+    SB.channel('all').on('postgres_changes',{event:'*',schema:'public'},function(){ pull(); }).subscribe(); }
+  var code=await SB.rpc('my_code');
+  $('mycode').textContent=(code&&code.data)||'';
+  $('codewrap').style.display=paired()?'none':'block';
+  $('status').innerHTML='Signed in as <b>'+(u.email||'')+'</b>'+
+    (myName()?' &middot; '+esc(myName()):'')+'.';
 }
 $('g-in').onclick=async function(){
   var e=$('g-email').value.trim(), p=$('g-pass').value, b=this;
@@ -1247,11 +1355,11 @@ $('g-up').onclick=async function(){
   SB.auth.getSession().then(function(r){
     if(r.data&&r.data.session) afterAuth(r.data.session.user); else gate(true,'');
   });
-  SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ UID=null; ROLE=null; gate(true,''); } });
+  SB.auth.onAuthStateChange(function(ev){ if(ev==='SIGNED_OUT'){ UID=null; ME=null; COUPLE=null; PEOPLE=[]; who=null; gate(true,''); } });
 })();
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-155911';
+var BUILD='20261121-161511';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
