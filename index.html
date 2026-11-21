@@ -358,6 +358,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
       <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
     <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
+  <button class="btn t" id="savesession">Save session</button>
   <div class="hint" id="setupstate"></div>
   <div class="sum" id="dosesum"></div>
   <div class="warnbox" id="gates"></div>
@@ -476,12 +477,31 @@ function paired(){ return !!theirRow(); }
 function $(i){return document.getElementById(i);}
 function el(t,c,h){var e=document.createElement(t); if(c)e.className=c; if(h!==undefined)e.innerHTML=h; return e;}
 function setUp(){ return !!(ME&&COUPLE); }
-function stamp(o){
+/* check_offs and pvt_runs have no entered_by / second_hand columns;
+   sending them makes the whole write fail. */
+function stamp(o,lean){
   o.user_id=UID; o.couple_id=COUPLE;
   o.subject_id=who; o.entered_by_id=UID;
-  o.subject=nameOf(who)||theirName()||'?'; o.entered_by=myName()||'?';
-  o.second_hand=(who!==UID);
+  o.subject=nameOf(who)||theirName()||'?';
+  if(!lean){ o.entered_by=myName()||'?'; o.second_hand=(who!==UID); }
   return o; }
+/* every write reports instead of failing in silence */
+var lastErr=0;
+function wrote(res,what){
+  if(res&&res.error){
+    lastErr=Date.now();
+    $('status').innerHTML='<b style="color:#F4556B">Could not save '+what+':</b> '+
+      esc(res.error.message||'unknown error')+'. Your entries are held on this phone and will '+
+      'go up on the next successful save.';
+    return false;
+  }
+  if(Date.now()-lastErr>500 && $('status')) saved();
+  return true;
+}
+function saved(){
+  var d=new Date(), h=d.getHours(), m=d.getMinutes();
+  $('status').innerHTML='Saved '+((h%12)||12)+':'+(m<10?'0':'')+m+' '+(h>=12?'PM':'AM');
+}
 function pick(rows,dk){
   var m={};
   (rows||[]).forEach(function(r){
@@ -806,9 +826,36 @@ function applySetup(r){
   var on=$('c-bump').classList.contains('on');
   ['c-br1','c-br2','c-br3'].forEach(function(x){ $(x).style.display=on?'':'none'; });
 }
+
+/* ---------- local draft ----------
+   Whatever is on screen is written to this phone immediately, so closing the
+   app mid-session never loses anything. The server copy wins once it arrives. */
+function draftKey(){ return 'dc_draft_'+(who||'x')+'_'+($('c-date').value||'x'); }
+function draftSave(){
+  try{ var o={}; SF.forEach(function(i){ o[i]=$(i).value; });
+    o.bump=$('c-bump').classList.contains('on');
+    o.reta=$('c-reta').classList.contains('on');
+    o.at=Date.now();
+    localStorage.setItem(draftKey(), JSON.stringify(o));
+  }catch(e){}
+}
+function draftLoad(){
+  try{
+    var raw=localStorage.getItem(draftKey()); if(!raw) return false;
+    var o=JSON.parse(raw); if(!o) return false;
+    SF.forEach(function(i){ if(o[i]!==undefined&&o[i]!=='') $(i).value=o[i]; });
+    ['c-bump','c-reta'].forEach(function(id){
+      var on=!!o[id.slice(2)==='bump'?'bump':'reta'];
+      $(id).classList.toggle('on',on); $(id).setAttribute('aria-checked',on?'true':'false'); });
+    return true;
+  }catch(e){ return false; }
+}
+function draftClear(){ try{ localStorage.removeItem(draftKey()); }catch(e){} }
+
 function loadSetup(){
   var r=find(sess,$('c-date').value);
-  applySetup(r);
+  if(r) { applySetup(r); draftClear(); }
+  else if(!draftLoad()) applySetup(null);
   $('setupstate').innerHTML=r
     ? 'Saved variant for <b>'+who+'</b> on '+r.date+(r.secondHand?' (entered second-hand)':'')+'.'
     : 'No variant saved for <b>'+who+'</b> on this date yet. It saves as you set it.';
@@ -824,7 +871,7 @@ function saveSetup(){
       .map(function(x){return x.date;}).sort().pop();
     r.gap=last?Math.round((new Date(r.date)-new Date(last))/86400000):null;
     SB.from('sessions').upsert(setupToRow(r),{onConflict:'user_id,subject,session_date'})
-      .then(function(){ pull(); });
+      .then(function(res){ if(wrote(res,'your session setup')){ draftClear(); pull(); } });
   },900);
 }
 
@@ -838,7 +885,8 @@ function toggle(id){
   if(canWrite()){
     var d=$('c-date').value;
     if(checks[k][id]) SB.from('check_offs').upsert(stamp({session_date:d,item_id:id,
-      checked_at:new Date().toISOString()}),{onConflict:'user_id,subject,session_date,item_id'}).then(function(){});
+      checked_at:new Date().toISOString()},true),{onConflict:'user_id,subject,session_date,item_id'})
+      .then(function(r){ wrote(r,'that check-off'); });
     else SB.from('check_offs').delete()
       .match({user_id:UID,subject:who,session_date:d,item_id:id}).then(function(){});
   }
@@ -954,14 +1002,33 @@ function next(){
     $('h-cd').innerHTML=(hh?hh+'h ':'')+(m%60)+'m <small>· '+clock(up.off)+'</small>'; }
 }
 SF.forEach(function(i){
-  $(i).addEventListener('input',function(){protocol(); saveSetup();});
-  $(i).addEventListener('change',function(){protocol(); saveSetup();});
+  $(i).addEventListener('input',function(){draftSave(); protocol(); saveSetup();});
+  $(i).addEventListener('change',function(){draftSave(); protocol(); saveSetup();});
 });
+
+$('savesession').onclick=function(){
+  var b=this;
+  if(!canWrite()){ $('setupstate').textContent='Not signed in yet.'; return; }
+  clearTimeout(setupT);
+  var r=readSetup();
+  var last=sess.filter(function(x){return x.person===who&&x.date<r.date;})
+    .map(function(x){return x.date;}).sort().pop();
+  r.gap=last?Math.round((new Date(r.date)-new Date(last))/86400000):null;
+  b.textContent='Saving\u2026'; b.disabled=true;
+  SB.from('sessions').upsert(setupToRow(r),{onConflict:'user_id,subject,session_date'})
+    .then(function(res){
+      b.disabled=false;
+      if(wrote(res,'your session setup')){ b.textContent='Saved'; draftClear(); pull();
+        setTimeout(function(){ b.textContent='Save session'; },1800); }
+      else b.textContent='Save session';
+    });
+};
+
 $('c-date').addEventListener('change',function(){ loadSetup(); protocol(); });
 function tg(id,after){ $(id).onclick=function(){
   var on=this.classList.toggle('on'); this.setAttribute('aria-checked',on?'true':'false');
   if(after) after(on); }; }
-tg('c-reta',function(){protocol(); saveSetup();});
+tg('c-reta',function(){draftSave(); protocol(); saveSetup();});
 tg('c-bump',function(on){
   ['c-br1','c-br2','c-br3'].forEach(function(r){ $(r).style.display=on?'':'none'; });
   protocol(); saveSetup(); });
@@ -1047,7 +1114,8 @@ function finish(){
   }
   $('r-vs').style.display='block';
   if(canWrite()) SB.from('pvt_runs').insert(stamp({trials_ms:tr,mean_ms:mn,median_ms:md,
-    slow10_ms:sl,false_starts:fs,voided:voided})).then(function(){});
+    slow10_ms:sl,false_starts:fs,voided:voided},true))
+    .then(function(r){ wrote(r,'the reaction test'); });
   var sv=$('pvtsave'); sv.style.display='block';
   sv.onclick=function(){ $('d-rt').value=mn; $('d-slow').value=sl; dirtyD=true;
     document.querySelector('.tabs button[data-v="recovery"]').click(); };
@@ -1118,6 +1186,7 @@ ds.onclick=function(){
   e.style.display='none';
   ds.textContent='Saving…'; ds.disabled=true; dirtyD=false;
   SB.from('day_logs').upsert(dayToRow(r),{onConflict:'user_id,subject,log_date'}).then(function(res){
+    wrote(res,'that day');
     if(res.error) throw res.error; pull();
     ds.textContent='Saved'; ds.disabled=false; setTimeout(function(){ds.textContent=ds.dataset.t;},1600);
   }).catch(function(){ ds.textContent=ds.dataset.t; ds.disabled=false;
@@ -1441,7 +1510,7 @@ addClears();
 document.addEventListener('input',function(){ addClears(); });
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-163835';
+var BUILD='20261121-165001';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
