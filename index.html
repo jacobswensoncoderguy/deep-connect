@@ -292,8 +292,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
 </div>
 
 <div id="claim" style="display:none">
-  <div class="sum"><b>Who is this account?</b> Pick once. Entries you save are signed with
-  your account, so this cannot be changed later without clearing them.</div>
+  <div class="sum"><b>Which one of you is this?</b> Pick once &mdash; everything you save gets tied to it, so it can&rsquo;t be changed later.</div>
   <div class="people" role="group" aria-label="Claim your identity">
     <button data-c="Jake">I am Jake</button><button data-c="Abbie">I am Abbie</button>
   </div>
@@ -1180,14 +1179,23 @@ $('a-make').onclick=function(){
   }catch(e){ $('a-note').textContent='Could not build the file: '+e.message; }
 };
 
+function paintWho(){
+  document.body.setAttribute('data-u', who);
+  Array.prototype.forEach.call(document.querySelectorAll('#idbar .people button'),function(b){
+    b.classList.toggle('on', b.dataset.w===who);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#claim .people button'),function(b){
+    b.classList.toggle('on', b.dataset.c===ROLE);
+  });
+}
 function whoBar(){
   $('idbar').style.display=ROLE?'block':'none';
   $('claim').style.display=ROLE?'none':'block';
   $('whohint').innerHTML=!ROLE?'':
     (who===ROLE
-      ? 'Signed in as <b>'+ROLE+'</b>. Entries are signed with this account.'
-      : 'Entering on <b>'+who+'</b>&rsquo;s behalf. The row is tagged second-hand and stays under your account &mdash; '+
-        (uidOf(who)?'her own entry for the same day will take precedence over it.':'she has not claimed an account yet.'));
+      ? 'You are <b>'+ROLE+'</b>. Everything you save is yours.'
+      : 'Filling this in for <b>'+who+'</b>. It is saved under your account and marked as entered by you &mdash; '+
+        (uidOf(who)?'if she enters the same day herself, hers is the one that counts.':'she has not set up her account yet.'));
 }
 async function claim(role){
   if(!SB||!UID) return;
@@ -1212,7 +1220,7 @@ async function afterAuth(u){
   UID=u.id; await loadRoles(); gate(false); paintWho(); whoBar(); await pull();
   SB.channel('all').on('postgres_changes',{event:'*',schema:'public'},function(){ pull(); }).subscribe();
   $('status').innerHTML='Signed in as <b>'+(u.email||'')+'</b>'+(ROLE?' &middot; '+ROLE:'')+
-    '. Rows are stamped with your account, so attribution cannot drift.';
+    '.';
 }
 $('g-in').onclick=async function(){
   var e=$('g-email').value.trim(), p=$('g-pass').value, b=this;
@@ -1243,7 +1251,7 @@ $('g-up').onclick=async function(){
 })();
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-154938';
+var BUILD='20261121-155911';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
