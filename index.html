@@ -480,7 +480,8 @@ var SB=null, UID=null, ME=null, COUPLE=null, PEOPLE=[];
 var who=null, proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
 function meRow(){ return PEOPLE.filter(function(p){return p.id===UID;})[0]||null; }
 function personOf(id){ return PEOPLE.filter(function(p){return p.id===id;})[0]||null; }
-function nameOf(id){ var p=personOf(id); return p?p.display_name:''; }
+function nameOf(id){ if(id==='__them') return theirName();
+  var p=personOf(id); return p?p.display_name:''; }
 function myName(){ return nameOf(UID); }
 function theirRow(){ return PEOPLE.filter(function(p){return p.id!==UID;})[0]||null; }
 /* their name, or the one you typed for them before they joined */
@@ -497,7 +498,7 @@ function setUp(){ return !!(ME&&COUPLE); }
    sending them makes the whole write fail. */
 function stamp(o,lean){
   o.user_id=UID; o.couple_id=COUPLE;
-  o.subject_id=who; o.entered_by_id=UID;
+  o.subject_id=(who==='__them'?null:who); o.entered_by_id=UID;
   o.subject=nameOf(who)||theirName()||'?';
   if(!lean){ o.entered_by=myName()||'?'; o.second_hand=(who!==UID); }
   return o; }
@@ -521,7 +522,7 @@ function saved(){
 function pick(rows,dk){
   var m={};
   (rows||[]).forEach(function(r){
-    var k=(r.subject_id||r.subject)+'|'+r[dk], p=m[k];
+    var k=(r.subject_id||'__them')+'|'+r[dk], p=m[k];
     if(!p){ m[k]=r; return; }
     if(!r.second_hand && p.second_hand){ m[k]=r; return; }
     if(r.second_hand && !p.second_hand) return;
@@ -535,7 +536,7 @@ function dayToRow(r){ return stamp({
   sleep_hrs:r.sleep, rem_latency_min:r.rem, train_load:r.trainLoad, top_set:r.topSet,
   mood:r.mood, energy:r.energy, motivation:r.motivation, libido:r.libido, notes:r.notes }); }
 function rowToDay(x){ return {
-  date:x.log_date, day:x.day_index, sessionDate:x.session_date, person:x.subject_id||x.subject, personName:x.subject,
+  date:x.log_date, day:x.day_index, sessionDate:x.session_date, person:x.subject_id||'__them', personName:x.subject,
   uid:x.user_id, secondHand:x.second_hand, at:x.updated_at||x.created_at,
   pvtRT:x.pvt_mean_ms, pvtSlow:x.pvt_slow10_ms, jump:x.jump_cm, restHR:x.resting_hr,
   sleep:x.sleep_hrs, rem:x.rem_latency_min, trainLoad:x.train_load, topSet:x.top_set,
@@ -548,7 +549,7 @@ function setupToRow(o){ return stamp({
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
   days_since_last:o.gap }); }
 function rowToSetup(x){ return {
-  date:x.session_date, person:x.subject_id||x.subject, personName:x.subject, uid:x.user_id, secondHand:x.second_hand,
+  date:x.session_date, person:x.subject_id||'__them', personName:x.subject, uid:x.user_id, secondHand:x.second_hand,
   at:x.updated_at||x.created_at, gap:x.days_since_last, stack:x.stack,
   'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
@@ -563,7 +564,7 @@ async function pull(){
   sess =pick(b.data||[],'session_date').map(rowToSetup);
   checks={};
   (c.data||[]).forEach(function(x){
-    var k=(x.subject_id||x.subject)+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
+    var k=(x.subject_id||'__them')+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
   loadSetup(); protocol(); if(!dirtyD) loadDaily(); render();
 }
 async function loadPeople(){
@@ -893,6 +894,7 @@ function saveSetup(){
 
 /* ---------- check-offs ---------- */
 function key(){ return who+'|'+$('c-date').value; }
+function subjMatch(){ return who==='__them'?null:who; }
 function canWrite(){ return !!(SB&&UID&&COUPLE); }
 function ck(id){ return !!(checks[key()]||{})[id]; }
 function toggle(id){
@@ -904,7 +906,7 @@ function toggle(id){
       checked_at:new Date().toISOString()},true),{onConflict:'user_id,subject,session_date,item_id'})
       .then(function(r){ wrote(r,'that check-off'); });
     else SB.from('check_offs').delete()
-      .match({subject_id:who,entered_by_id:UID,session_date:d,item_id:id}).then(function(){});
+      .match({subject_id:subjMatch(),entered_by_id:UID,session_date:d,item_id:id}).then(function(){});
   }
   protocol();
 }
@@ -1082,7 +1084,7 @@ $('reset').onclick=function(){
     setTimeout(function(){b.dataset.armed='0'; b.innerHTML='Clear today&rsquo;s check-offs';},4000); return; }
   b.dataset.armed='0'; checks[key()]={};
   if(canWrite()) SB.from('check_offs').delete()
-    .match({subject_id:who,entered_by_id:UID,session_date:$('c-date').value}).then(function(){});
+    .match({subject_id:subjMatch(),entered_by_id:UID,session_date:$('c-date').value}).then(function(){});
   b.innerHTML='Clear today&rsquo;s check-offs'; protocol();
 };
 setInterval(next,20000);
@@ -1244,7 +1246,7 @@ dd.onclick=function(){
   var row=find(daily,$('d-date').value);
   if(row&&row.uid&&row.uid!==UID){ $('d-err').textContent=
     'That row was saved by the other account. Only they can delete it.'; $('d-err').style.display='block'; return; }
-  SB.from('day_logs').delete().match({subject_id:who,entered_by_id:UID,log_date:$('d-date').value})
+  SB.from('day_logs').delete().match({subject_id:subjMatch(),entered_by_id:UID,log_date:$('d-date').value})
     .then(function(){ pull(); });
 };
 
@@ -1357,7 +1359,7 @@ function render(){
       var row=find(daily,b.dataset.d);
       if(row&&row.uid&&row.uid!==UID){ b.textContent='not yours'; return; }
       if(canWrite()) SB.from('day_logs').delete()
-        .match({subject_id:who,entered_by_id:UID,log_date:b.dataset.d}).then(function(){ pull(); });
+        .match({subject_id:subjMatch(),entered_by_id:UID,log_date:b.dataset.d}).then(function(){ pull(); });
     };
   });
   options(); strips();
@@ -1451,11 +1453,6 @@ function whoBar(){
   }
   Array.prototype.forEach.call(box.querySelectorAll('button'),function(btn){
     btn.onclick=function(){
-      if(btn.dataset.w==='__them'){
-        $('whohint').innerHTML='<b>'+esc(hers)+' has not set up her account yet.</b> '+
-          'Send her the code under Tests and she can sign in on her own phone.';
-        return;
-      }
       if(who===btn.dataset.w) return;
       who=btn.dataset.w; proxy=(who!==UID);
       paintWho(); whoBar(); dirtyD=false; loadSetup(); protocol(); loadDaily(); render();
@@ -1464,8 +1461,11 @@ function whoBar(){
   paintWho();
   $('whohint').innerHTML = who===UID
     ? 'You are <b>'+esc(mine)+'</b>. Everything you save here is yours.'
-    : 'Filling this in for <b>'+esc(nameOf(who))+'</b>. It is marked as entered by you &mdash; '+
-      'if she logs the same day herself, hers is the one that counts.';
+    : (who==='__them'
+      ? 'Logging for <b>'+esc(hers)+'</b>. She has no account yet, so this is held for her &mdash; '+
+         'it moves to her automatically the moment she joins with your code.'
+       : 'Filling this in for <b>'+esc(nameOf(who))+'</b>. It is marked as entered by you &mdash; '+
+         'if she logs the same day herself, hers is the one that counts.');
 }
 async function setupAccount(mode){
   if(!SB||!UID) return;
@@ -1598,7 +1598,7 @@ document.addEventListener('input',function(){ addClears(); });
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-170025';
+var BUILD='20261121-170335';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
