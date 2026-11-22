@@ -446,6 +446,10 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="panel"><div class="ctl"><label for="pick">Session</label><select id="pick"></select></div></div>
   <div class="panel" id="strips" style="margin-top:9px"></div>
 
+  <div class="lab" data-p="test"><i></i><span>Past sessions</span></div>
+  <div class="hint">Tap one to load it into the Session tab.</div>
+  <div class="scroll" style="margin-top:9px"><table id="t-sess"></table></div>
+
   <div id="codewrap" style="display:none">
     <div class="lab" data-p="test"><i></i><span>Invite your partner</span></div>
     <div class="hint">She signs up on this same link, taps &ldquo;My partner sent me a code&rdquo;,
@@ -900,7 +904,7 @@ function toggle(id){
       checked_at:new Date().toISOString()},true),{onConflict:'user_id,subject,session_date,item_id'})
       .then(function(r){ wrote(r,'that check-off'); });
     else SB.from('check_offs').delete()
-      .match({user_id:UID,subject:who,session_date:d,item_id:id}).then(function(){});
+      .match({subject_id:who,entered_by_id:UID,session_date:d,item_id:id}).then(function(){});
   }
   protocol();
 }
@@ -1054,6 +1058,15 @@ $('savesession').onclick=function(){
     });
 };
 
+
+/* ---------- dates default to today ---------- */
+function todayStr(){
+  var d=new Date();
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+}
+if(!$('c-date').value) $('c-date').value=todayStr();
+if(!$('d-date').value) $('d-date').value=todayStr();
+
 $('c-date').addEventListener('change',function(){ loadSetup(); protocol(); });
 function tg(id,after){ $(id).onclick=function(){
   var on=this.classList.toggle('on'); this.setAttribute('aria-checked',on?'true':'false');
@@ -1069,7 +1082,7 @@ $('reset').onclick=function(){
     setTimeout(function(){b.dataset.armed='0'; b.innerHTML='Clear today&rsquo;s check-offs';},4000); return; }
   b.dataset.armed='0'; checks[key()]={};
   if(canWrite()) SB.from('check_offs').delete()
-    .match({user_id:UID,subject:who,session_date:$('c-date').value}).then(function(){});
+    .match({subject_id:who,entered_by_id:UID,session_date:$('c-date').value}).then(function(){});
   b.innerHTML='Clear today&rsquo;s check-offs'; protocol();
 };
 setInterval(next,20000);
@@ -1231,7 +1244,7 @@ dd.onclick=function(){
   var row=find(daily,$('d-date').value);
   if(row&&row.uid&&row.uid!==UID){ $('d-err').textContent=
     'That row was saved by the other account. Only they can delete it.'; $('d-err').style.display='block'; return; }
-  SB.from('day_logs').delete().match({user_id:UID,subject:who,log_date:$('d-date').value})
+  SB.from('day_logs').delete().match({subject_id:who,entered_by_id:UID,log_date:$('d-date').value})
     .then(function(){ pull(); });
 };
 
@@ -1285,7 +1298,50 @@ function options(){
     :'<option value="">none yet</option>';
   if(cur&&ks.indexOf(cur)>=0) s.value=cur;
 }
+
+/* ---------- past sessions ---------- */
+function fmtT(t){
+  if(!t) return '';
+  var p=String(t).split(':'), h=+p[0], m=+p[1];
+  return ((h%12)||12)+':'+('0'+m).slice(-2)+' '+(h>=12?'PM':'AM');
+}
+function sessTable(){
+  var t=$('t-sess'); if(!t) return;
+  var list=(blind?sess.filter(function(r){return r.person===who;}):sess.slice())
+    .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
+  var cols=['Date','Who','Start','Dose 1','Dose 2','Bump','Total','Gap'];
+  var h='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
+  if(!list.length){ t.innerHTML=h+'<tr><td colspan="'+cols.length+'">nothing yet</td></tr>'; return; }
+  t.innerHTML=h+list.map(function(r){
+    var d1=(r['c-d1']||'')+(r['c-v1']?' '+String(r['c-v1']).toLowerCase():'');
+    var d2=(r['c-d2']||'')+(r['c-v2']?' '+String(r['c-v2']).toLowerCase():'');
+    var bp=r.bump?((r['c-bd']||'')+' @ '+fmtT(r['c-bt'])):'—';
+    var tot=(+r['c-d1']||0)+(+r['c-d2']||0)+(r.bump?(+r['c-bd']||0):0);
+    return '<tr data-s="'+esc(r.date)+'">'+
+      '<td><b>'+esc(r.date)+'</b></td>'+
+      '<td>'+esc(nameOf(r.person)||r.personName||'')+'</td>'+
+      '<td>'+fmtT(r['c-t0'])+'</td>'+
+      '<td>'+esc(d1)+'</td><td>'+esc(d2)+'</td><td>'+esc(bp)+'</td>'+
+      '<td>'+tot+' mg</td>'+
+      '<td>'+(r.gap==null?'—':r.gap+'d')+'</td></tr>';
+  }).join('');
+  Array.prototype.forEach.call(t.querySelectorAll('tr[data-s]'),function(tr){
+    tr.style.cursor='pointer';
+    tr.onclick=function(){
+      $('c-date').value=tr.dataset.s;
+      loadSetup(); protocol();
+      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){
+        b.classList.toggle('on', b.dataset.v==='session'); });
+      Array.prototype.forEach.call(document.querySelectorAll('section'),function(x){
+        x.classList.remove('on'); });
+      $('v-session').classList.add('on');
+      window.scrollTo(0,0);
+    };
+  });
+}
+
 function render(){
+  sessTable();
   var d=blind?daily.filter(function(r){return r.person===who;}):daily.slice();
   d.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
   var t=$('t-daily');
@@ -1301,7 +1357,7 @@ function render(){
       var row=find(daily,b.dataset.d);
       if(row&&row.uid&&row.uid!==UID){ b.textContent='not yours'; return; }
       if(canWrite()) SB.from('day_logs').delete()
-        .match({user_id:UID,subject:who,log_date:b.dataset.d}).then(function(){ pull(); });
+        .match({subject_id:who,entered_by_id:UID,log_date:b.dataset.d}).then(function(){ pull(); });
     };
   });
   options(); strips();
@@ -1542,7 +1598,7 @@ document.addEventListener('input',function(){ addClears(); });
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-165710';
+var BUILD='20261121-170025';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
