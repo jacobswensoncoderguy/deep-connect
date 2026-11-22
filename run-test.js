@@ -116,6 +116,25 @@ setTimeout(()=>{
     w.customs=[{id:'K',section:'peri',subject_id:'U1',name:'Ketamine 40 mg',detail:'',off_min:120,builtin_id:null}];
     const ics=w.buildIcs(); w.customs=[];
     if(!/Ketamine/.test(ics)) throw new Error('custom item missing from calendar'); });
+  T('onset controls exist',()=>{
+    if(!d.getElementById('felt-now')||!d.getElementById('felt-time')) throw new Error('missing'); });
+  T('push toggle exists',()=>{ if(!d.getElementById('pushtog')) throw new Error('missing'); });
+  T('onset table renders',()=>{
+    w.checks={'U1|2026-11-14':{dose1:{at:new Date('2026-11-14T18:00:00').toISOString(),skipped:false}}};
+    w.sess=[{date:'2026-11-14',person:'U1','c-t0':'18:00','c-d1':100,'c-v1':'Liquid softgel',
+      'c-d2':50,'c-v2':'Capsule',bump:false,gap:7,
+      feltAt:new Date('2026-11-14T18:32:00').toISOString()}];
+    w.render();
+    const t=d.getElementById('t-onset').textContent;
+    if(!t.includes('32 min')) throw new Error('got: '+t.slice(0,160)); });
+  T('reminder list follows actuals',()=>{
+    w.checks={'U1|2026-11-21':{dose1:{at:new Date('2026-11-21T17:28:00').toISOString(),skipped:false}}};
+    d.getElementById('c-date').value='2026-11-21'; w.protocol();
+    const L=w.reminderList();
+    if(!L.length) throw new Error('empty');
+    if(L.some(x=>x.item_id==='dose1')) throw new Error('already-taken item queued'); });
+  T('service worker file referenced',()=>{
+    if(!/sw\.js/.test(d.documentElement.innerHTML)) throw new Error('no sw.js'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 

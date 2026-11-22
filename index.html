@@ -397,6 +397,21 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="lab" data-p="rec"><i></i><span>Before bed</span><em id="n-bed"></em></div>
   <div class="tl" id="g-bed"></div>
 
+  <div class="lab" data-p="pre"><i></i><span>First felt it</span></div>
+  <div class="panel">
+    <div class="ctl"><label>Me</label>
+      <button class="btn b" id="felt-now" style="margin:0;width:auto;padding:9px 14px;font-size:14px">Felt it just now</button></div>
+    <div class="ctl"><label for="felt-time">Time</label><input type="time" id="felt-time"></div>
+  </div>
+  <div class="hint" id="feltnote">Tap the moment it comes on. Measured from your actual first dose, so it builds a real onset time for each form you use.</div>
+
+  <div class="lab"><i></i><span>Notifications</span></div>
+  <div class="panel">
+    <div class="ctl"><label>Remind me on this phone</label>
+      <button class="tg" id="pushtog" role="switch" aria-checked="false" aria-label="Notifications"></button></div>
+  </div>
+  <div class="hint" id="pushnote">Reminders arrive even with the app closed, and they move when a dose moves.</div>
+
   <div class="lab"><i></i><span>Alerts</span></div>
   <div class="panel">
     <div class="ctl"><label for="a-lead">Remind me this early</label><select id="a-lead">
@@ -460,6 +475,10 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="lab" data-p="test"><i></i><span>How this compares to normal</span></div>
   <div class="panel"><div class="ctl"><label for="pick">Session</label><select id="pick"></select></div></div>
   <div class="panel" id="strips" style="margin-top:9px"></div>
+
+  <div class="lab" data-p="test"><i></i><span>Your onset by form</span></div>
+  <div class="hint">Measured from your own sessions: first dose to first effects.</div>
+  <div class="scroll" style="margin-top:9px"><table id="t-onset"></table></div>
 
   <div class="lab" data-p="test"><i></i><span>Past sessions</span></div>
   <div class="hint">Tap one to load it into the Session tab.</div>
@@ -565,6 +584,7 @@ function setupToRow(o){ return stamp({
   dose1_mg:+o['c-d1']||null, dose1_form:o['c-v1'], dose2_mg:+o['c-d2']||null, dose2_form:o['c-v2'],
   bump:!!o.bump, bump_time:o.bump?(o['c-bt']||null):null, bump_mg:o.bump?(+o['c-bd']||null):null,
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
+  felt_at:o.feltAt||null,
   days_since_last:o.gap }); }
 function rowToSetup(x){ return {
   date:x.session_date, person:x.subject_id||'__them', personName:x.subject, uid:x.user_id, secondHand:x.second_hand,
@@ -572,7 +592,7 @@ function rowToSetup(x){ return {
   'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
   'c-bt':x.bump_time?String(x.bump_time).slice(0,5):'', 'c-bd':x.bump_mg,
-  'c-vehicle':x.bump_form, reta:x.on_reta }; }
+  'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at }; }
 async function pull(){
   if(!SB||!UID) return;
   var a=await SB.from('day_logs').select('*');
@@ -860,6 +880,7 @@ var SF=['c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
 var setupT=null;
 function readSetup(){
   var o={date:$('c-date').value};
+  var prevF=find(sess,o.date); if(prevF&&prevF.feltAt) o.feltAt=prevF.feltAt;
   SF.forEach(function(i){ o[i]=$(i).value; });
   o.bump=$('c-bump').classList.contains('on');
   o.reta=$('c-reta').classList.contains('on');
@@ -1282,6 +1303,7 @@ function protocol(){
       ' min; the liquid mostly slips past it.':'')+
     ' Antioxidants start at peak, not before.';
   $('hsub').textContent=$('c-date').value+' · '+clock(0)+' start';
+  queueSoon(); paintFelt();
   var last=sess.filter(function(s){return s.person===who&&s.date<$('c-date').value;})
     .map(function(s){return s.date;}).sort().pop();
   var gap=last?Math.round((new Date($('c-date').value)-new Date(last))/86400000):null;
@@ -1619,7 +1641,7 @@ function sessTable(){
 }
 
 function render(){
-  sessTable();
+  sessTable(); onsetTable();
   var d=blind?daily.filter(function(r){return r.person===who;}):daily.slice();
   d.sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
   var t=$('t-daily');
@@ -1681,6 +1703,191 @@ function vev(uid,start,title,body,lead){
    'TRIGGER:'+(lead>0?'-PT'+lead+'M':'PT0M'),'END:VALARM','END:VEVENT');
   return L.join('\r\n');
 }
+
+
+/* ---------- onset ---------- */
+function doseActual(){
+  var t=ckAt('dose1'); if(t) return new Date(t);
+  var t0=mins($('c-t0').value); if(t0===null||!$('c-date').value) return null;
+  var d=new Date($('c-date').value+'T00:00:00'); d.setMinutes(t0); return d;
+}
+function setFelt(iso){
+  if(!canWrite()) return;
+  var sd=$('c-date').value; if(!sd) return;
+  var r=readSetup(); r.feltAt=iso;
+  SB.from('sessions').upsert(setupToRow(r),{onConflict:'user_id,subject,session_date'})
+    .then(function(res){ if(wrote(res,'your onset time')) pull(); });
+}
+function paintFelt(){
+  var row=find(sess,$('c-date').value);
+  var f=row&&row.feltAt?new Date(row.feltAt):null;
+  if(f) $('felt-time').value=('0'+f.getHours()).slice(-2)+':'+('0'+f.getMinutes()).slice(-2);
+  var d0=doseActual();
+  if(f&&d0){
+    var mn=Math.round((f-d0)/60000);
+    $('feltnote').innerHTML='<b>'+mn+' minutes</b> from your first dose ('+
+      esc($('c-v1').value.toLowerCase())+') to first effects.';
+  } else {
+    $('feltnote').textContent='Tap the moment it comes on. Measured from your actual first dose, '+
+      'so it builds a real onset time for each form you use.';
+  }
+}
+function onsetTable(){
+  var t=$('t-onset'); if(!t) return;
+  var rows=sess.filter(function(r){ return (blind? r.person===who : true) && r.feltAt && r['c-v1']; });
+  var by={};
+  rows.forEach(function(r){
+    var start=null;
+    var ck=(checks[(r.person)+'|'+r.date]||{}).dose1;
+    if(ck&&!ck.skipped) start=new Date(ck.at);
+    else if(r['c-t0']){ var p=String(r['c-t0']).split(':');
+      start=new Date(r.date+'T00:00:00'); start.setHours(+p[0],+p[1],0,0); }
+    if(!start) return;
+    var mn=Math.round((new Date(r.feltAt)-start)/60000);
+    if(mn<=0||mn>480) return;
+    var k=r['c-v1']+'|'+(nameOf(r.person)||r.personName||'');
+    (by[k]=by[k]||[]).push({m:mn,date:r.date,mg:r['c-d1']});
+  });
+  var keys=Object.keys(by);
+  var head='<tr><th>Form</th><th>Who</th><th>Times</th><th>Typical</th><th>Range</th></tr>';
+  if(!keys.length){ t.innerHTML=head+'<tr><td colspan="5">log a first-felt time to start this</td></tr>'; return; }
+  t.innerHTML=head+keys.map(function(k){
+    var a=by[k].map(function(x){return x.m;}).sort(function(x,y){return x-y;});
+    var med=a[Math.floor(a.length/2)];
+    var p=k.split('|');
+    return '<tr><td><b>'+esc(p[0])+'</b></td><td>'+esc(p[1])+'</td><td>'+a.length+'</td>'+
+      '<td><b>'+med+' min</b></td><td>'+a[0]+'\u2013'+a[a.length-1]+' min</td></tr>';
+  }).join('');
+}
+
+/* ---------- push notifications ----------
+   The app owns the schedule. Every time the protocol changes it republishes
+   its own reminders, timed off the doses you have actually taken. */
+var VAPID='BBPG3F7_MaMOipJfepCe3h9q_BMr3mUq_Dg4YS1iuCp5uulgfEIqBPHVzccV49_Qm0REH2cTDqi_8JK7A_sFan4';
+var swReg=null, pushOn=false, queueT=null;
+
+function b64url(s){
+  var pad='='.repeat((4-s.length%4)%4);
+  var b=atob((s+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  var out=new Uint8Array(b.length);
+  for(var i=0;i<b.length;i++) out[i]=b.charCodeAt(i);
+  return out;
+}
+function abToB64(buf){
+  var b=new Uint8Array(buf), s='';
+  for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]);
+  return btoa(s);
+}
+function pushSupported(){
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+}
+async function initPush(){
+  if(!pushSupported()) return;
+  try{
+    swReg=await navigator.serviceWorker.register('sw.js');
+    var sub=await swReg.pushManager.getSubscription();
+    pushOn=!!sub && Notification.permission==='granted';
+    paintPush();
+  }catch(e){ paintPush(); }
+}
+async function enablePush(){
+  if(!pushSupported()){
+    $('pushnote').innerHTML='This phone cannot do notifications from a web app. '+
+      'On iPhone the app has to be added to your home screen first, from Safari.';
+    return;
+  }
+  try{
+    var perm=await Notification.requestPermission();
+    if(perm!=='granted'){
+      $('pushnote').textContent='Notifications are blocked. Turn them on for Deep Connect in your phone settings.';
+      paintPush(); return;
+    }
+    if(!swReg) swReg=await navigator.serviceWorker.register('sw.js');
+    await navigator.serviceWorker.ready;
+    var sub=await swReg.pushManager.getSubscription();
+    if(!sub) sub=await swReg.pushManager.subscribe({
+      userVisibleOnly:true, applicationServerKey:b64url(VAPID)});
+    var j=sub.toJSON();
+    var r=await SB.from('push_subs').upsert({
+      couple_id:COUPLE, owner_id:UID, endpoint:j.endpoint,
+      p256dh:j.keys.p256dh, auth:j.keys.auth,
+      label:(navigator.userAgent.indexOf('iPhone')>-1?'iPhone':'device')
+    },{onConflict:'endpoint'});
+    if(!wrote(r,'your notification setup')) return;
+    pushOn=true; paintPush();
+    $('pushnote').textContent='On. Reminders will arrive even with the app closed.';
+    await publishQueue();
+  }catch(e){
+    $('pushnote').textContent='Could not turn notifications on: '+(e.message||e);
+  }
+}
+async function disablePush(){
+  try{
+    if(swReg){ var sub=await swReg.pushManager.getSubscription();
+      if(sub){ await SB.from('push_subs').delete().match({endpoint:sub.endpoint,owner_id:UID});
+               await sub.unsubscribe(); } }
+  }catch(e){}
+  pushOn=false; paintPush();
+  $('pushnote').textContent='Off. Nothing will be sent to this phone.';
+}
+function paintPush(){
+  var b=$('pushtog'); if(!b) return;
+  b.classList.toggle('on',pushOn);
+  b.setAttribute('aria-checked',pushOn?'true':'false');
+}
+
+/* the schedule the app will actually send, rebuilt from current state */
+function reminderList(){
+  var lead=+$('a-lead').value||0, out=[], sd=$('c-date').value;
+  if(!sd||!$('c-t0').value) return out;
+  withCustom(PRE(),'pre').concat(withCustom(PERI(),'peri')).forEach(function(e){
+    if(e.off===null||e.off===undefined) return;
+    if(resolved(e.id)) return;
+    var d=eventDate(e.off); if(!d) return;
+    var at=new Date(d.getTime()-lead*60000);
+    if(at.getTime()<Date.now()+20000) return;
+    out.push({item_id:e.id, title:e.n, body:e.d||'', send_at:at.toISOString()});
+  });
+  var bed=eventDate(peak()+330);
+  if(bed && bed.getTime()>Date.now()){
+    out.push({item_id:'bedblock', title:'Before bed',
+      body:withCustom(BED,'bed').map(function(b){return b.n;}).join(' \u00b7 '),
+      send_at:new Date(bed.getTime()-lead*60000).toISOString()});
+  }
+  if($('a-rec').classList.contains('on')){
+    var base=new Date(sd+'T00:00:00');
+    function at(k,h,m){ var x=new Date(base); x.setDate(x.getDate()+k); x.setHours(h,m,0,0); return x; }
+    function push(id,t,ti,bo){ if(t.getTime()>Date.now())
+      out.push({item_id:id,title:ti,body:bo,send_at:new Date(t.getTime()-lead*60000).toISOString()}); }
+    push('r1a',at(1,8,0),'L-tyrosine 1,000 mg','Full breakfast with carbs, electrolytes, sunlight. Walk only today.');
+    push('r1b',at(1,20,0),'5-HTP 100 mg + EGCG 400 mg','The 24-hour gate clears now. Never without EGCG.');
+    for(var k=2;k<=10;k++){
+      push('rm'+k,at(k,8,0),'Morning stack',
+        'L-tyrosine \u00b7 EPA \u00b7 CoQ10 \u00b7 Semax'+(k>=3?' \u00b7 no ALA from today':''));
+      push('re'+k,at(k,20,0),'Evening stack',
+        '5-HTP + EGCG \u00b7 magnesium \u00b7 NAC'+(k===10?' \u00b7 last 5-HTP day':''));
+    }
+  }
+  return out;
+}
+async function publishQueue(){
+  if(!canWrite()||!pushOn) return;
+  var sd=$('c-date').value; if(!sd) return;
+  var list=reminderList();
+  try{
+    await SB.from('push_queue').delete().match({owner_id:UID,session_date:sd}).is('sent_at',null);
+    if(list.length){
+      await SB.from('push_queue').insert(list.map(function(x){
+        return {couple_id:COUPLE, owner_id:UID, subject_id:subjMatch(),
+          session_date:sd, item_id:x.item_id, title:x.title, body:x.body, send_at:x.send_at}; }));
+    }
+    $('pushnote').innerHTML='<b>'+list.length+' reminders scheduled.</b> '+
+      'They follow the times above, so they move when a dose does.';
+  }catch(e){ $('pushnote').textContent='Could not schedule reminders: '+(e.message||e); }
+}
+/* any change to the protocol reschedules, debounced */
+function queueSoon(){ clearTimeout(queueT); queueT=setTimeout(publishQueue,1200); }
+
 function buildIcs(){
   var lead=+$('a-lead').value||0, evs=[], q=0, sd=$('c-date').value;
   /* your protocol as it actually stands: your added items, your removals,
@@ -1884,10 +2091,20 @@ addClears();
 document.addEventListener('input',function(){ addClears(); });
 
 $('restore').onclick=function(){ restoreAll(); };
+
+$('pushtog').onclick=function(){ pushOn?disablePush():enablePush(); };
+$('felt-now').onclick=function(){ setFelt(new Date().toISOString()); };
+$('felt-time').addEventListener('change',function(){
+  var v=this.value; if(!v) return;
+  var p=v.split(':'), d=new Date(($('c-date').value||todayStr())+'T00:00:00');
+  d.setHours(+p[0],+p[1],0,0); setFelt(d.toISOString());
+});
+initPush();
+
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-180018';
+var BUILD='20261121-180645';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
