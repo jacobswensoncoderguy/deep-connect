@@ -886,8 +886,8 @@ function loadSetup(){
   if(r) { applySetup(r); draftClear(); }
   else if(!draftLoad()) applySetup(null);
   $('setupstate').innerHTML=r
-    ? 'Saved variant for <b>'+who+'</b> on '+r.date+(r.secondHand?' (entered second-hand)':'')+'.'
-    : 'No variant saved for <b>'+who+'</b> on this date yet. It saves as you set it.';
+    ? 'Saved for <b>'+esc(nameOf(who))+'</b> on '+r.date+(r.secondHand?' (entered by the other of you)':'')+'.'
+    : 'Nothing saved for <b>'+esc(nameOf(who))+'</b> on this date yet. It saves as you go.';
 }
 function saveSetup(){
   if(!canWrite()) return;
@@ -908,11 +908,11 @@ function saveSetup(){
 function key(){ return who+'|'+$('c-date').value; }
 function subjMatch(){ return who==='__them'?null:who; }
 function canWrite(){ return !!(SB&&UID&&COUPLE); }
-function st(id){ return (checks[key()]||{})[id]||null; }
-function ck(id){ var r=st(id); return !!(r&&!r.skipped); }
-function isSkipped(id){ var r=st(id); return !!(r&&r.skipped); }
-function ckAt(id){ var r=st(id); return r&&!r.skipped?r.at:null; }
-function resolved(id){ return !!st(id); }
+function ckState(id){ return (checks[key()]||{})[id]||null; }
+function ck(id){ var r=ckState(id); return !!(r&&!r.skipped); }
+function isSkipped(id){ var r=ckState(id); return !!(r&&r.skipped); }
+function ckAt(id){ var r=ckState(id); return r&&!r.skipped?r.at:null; }
+function resolved(id){ return !!ckState(id); }
 
 /* one writer for all three states: taken / skipped / cleared */
 function setState(id,state,whenIso){
@@ -1807,7 +1807,7 @@ $('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-171515';
+var BUILD='20261121-174136';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
