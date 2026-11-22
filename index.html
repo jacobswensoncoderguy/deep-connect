@@ -386,6 +386,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
   <button class="btn t" id="savesession">Save session</button>
+  <button class="btn b" id="finishsession">Finish session &amp; log how it went</button>
   <div class="hint" id="setupstate"></div>
   <div class="sum" id="dosesum"></div>
   <div class="warnbox" id="gates"></div>
@@ -426,6 +427,13 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
 </section>
 
 <section id="v-recovery">
+  <div class="hero idle" id="rechero" style="margin-bottom:14px">
+    <div class="k" id="recday">TODAY</div>
+    <div class="v" id="recwhat">&mdash;</div>
+  </div>
+  <div class="ctl" style="margin-bottom:12px"><label for="rec-date">Showing</label>
+    <input type="date" id="rec-date"></div>
+
   <div class="lab" data-p="rec"><i></i><span>Day after</span><em id="n-d1"></em></div>
   <div class="tl" id="g-d1"></div>
   <div class="lab" data-p="rec"><i></i><span>Days 2 to 10</span><em id="n-week"></em></div>
@@ -584,7 +592,9 @@ function setupToRow(o){ return stamp({
   dose1_mg:+o['c-d1']||null, dose1_form:o['c-v1'], dose2_mg:+o['c-d2']||null, dose2_form:o['c-v2'],
   bump:!!o.bump, bump_time:o.bump?(o['c-bt']||null):null, bump_mg:o.bump?(+o['c-bd']||null):null,
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
-  felt_at:o.feltAt||null,
+  felt_at:o.feltAt||null, finished_at:o.finishedAt||null,
+  peak_score:o.peakScore||null, body_load:o.bodyLoad||null,
+  plateau_hrs:o.plateau||null, notes:o.notes||null,
   days_since_last:o.gap }); }
 function rowToSetup(x){ return {
   date:x.session_date, person:x.subject_id||'__them', personName:x.subject, uid:x.user_id, secondHand:x.second_hand,
@@ -592,7 +602,9 @@ function rowToSetup(x){ return {
   'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
   'c-bt':x.bump_time?String(x.bump_time).slice(0,5):'', 'c-bd':x.bump_mg,
-  'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at }; }
+  'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at,
+  finishedAt:x.finished_at, peakScore:x.peak_score, bodyLoad:x.body_load,
+  plateau:x.plateau_hrs, notes:x.notes }; }
 async function pull(){
   if(!SB||!UID) return;
   var a=await SB.from('day_logs').select('*');
@@ -726,20 +738,24 @@ function PERI(){
 var BED=[{id:'bmag',n:'Magnesium glycinate 400 mg'},{id:'bmel',n:'Melatonin 3–5 mg'},
  {id:'belec',n:'Electrolytes and water'},
  {id:'bno5',n:'No 5-HTP tonight',d:'A precursor plus a releaser is the serotonin syndrome setup. Nothing until T+24 h.'}];
-var D1=[{id:'r-tyr',n:'L-tyrosine 1,000 mg',d:'Morning. Works only in a depleted state, which is now.'},
- {id:'r-food',n:'Full breakfast with carbs'},{id:'r-elec',n:'Electrolytes · 15–20 min sunlight'},
- {id:'r-stack',n:'Normal stack',d:'EPA · CoQ10 · multi · creatine · D3+K2'},
- {id:'r-walk',n:'Walk only — no training'},
- {id:'r-5htp',n:'5-HTP 100 mg + EGCG 400 mg',d:'8 PM or later. Never unpaired — without EGCG it converts in the gut.'},
- {id:'r-pm',n:'Magnesium 400 mg · melatonin'}];
-var WEEK=[{id:'w-am',n:'Morning',d:'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax 600 mcg'},
- {id:'w-pm',n:'Evening',d:'5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg'},
- {id:'w-nac',n:'NAC 600 mg daily',d:'Through day 10. Glutathione takes three to four weeks to rebuild.'},
- {id:'w-ala',n:'Drop the ALA from day 3',d:'Chronic high-dose antioxidants blunt hypertrophy adaptation.'},
- {id:'w-stop',n:'Stop 5-HTP at day 10'},{id:'w-alc',n:'No alcohol for 7 days'}];
-var PEP=[{id:'p-bpc',n:'BPC-157 — 250–500 mcg daily',d:'Two to three weeks. Rodent data only for this use.'},
- {id:'p-tb',n:'TB-500 — 2–5 mg weekly',d:'Split into two. Rodent only as well.'}];
-var TRAIN=[{id:'t1',n:'Day 1 — walk only'},{id:'t2',n:'Day 2 — light'},{id:'t3',n:'Day 3 — normal'}];
+var D1=[{id:'r-tyr',n:'L-tyrosine 1,000 mg',d:'Morning. Works only in a depleted state, which is now.',day:[1,1]},
+ {id:'r-food',n:'Full breakfast with carbs',day:[1,1]},
+ {id:'r-elec',n:'Electrolytes · 15–20 min sunlight',day:[1,1]},
+ {id:'r-stack',n:'Normal stack',d:'EPA · CoQ10 · multi · creatine · D3+K2',day:[1,1]},
+ {id:'r-walk',n:'Walk only — no training',day:[1,1]},
+ {id:'r-5htp',n:'5-HTP 100 mg + EGCG 400 mg',d:'8 PM or later. Never unpaired — without EGCG it converts in the gut.',day:[1,1]},
+ {id:'r-pm',n:'Magnesium 400 mg · melatonin',day:[1,1]}];
+var WEEK=[{id:'w-am',n:'Morning',d:'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax 600 mcg',day:[2,10]},
+ {id:'w-pm',n:'Evening',d:'5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg',day:[2,10]},
+ {id:'w-nac',n:'NAC 600 mg daily',d:'Through day 10. Glutathione takes three to four weeks to rebuild.',day:[1,10]},
+ {id:'w-ala',n:'No ALA from today',d:'Chronic high-dose antioxidants blunt hypertrophy adaptation.',day:[3,10]},
+ {id:'w-stop',n:'Last 5-HTP day',day:[10,10]},
+ {id:'w-alc',n:'No alcohol',day:[1,7]}];
+var PEP=[{id:'p-bpc',n:'BPC-157 — 250–500 mcg daily',d:'Two to three weeks. Rodent data only for this use.',day:[1,21]},
+ {id:'p-tb',n:'TB-500 — 2–5 mg weekly',d:'Split into two. Rodent only as well.',day:[1,21]}];
+var TRAIN=[{id:'t1',n:'Walk only today',day:[1,1]},
+ {id:'t2',n:'Light session',day:[2,2]},
+ {id:'t3',n:'Back to normal',day:[3,30]}];
 
 
 /* ---------- evidence cards ----------
@@ -880,7 +896,10 @@ var SF=['c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
 var setupT=null;
 function readSetup(){
   var o={date:$('c-date').value};
-  var prevF=find(sess,o.date); if(prevF&&prevF.feltAt) o.feltAt=prevF.feltAt;
+  var prevF=find(sess,o.date);
+  if(prevF){ o.feltAt=prevF.feltAt; o.finishedAt=prevF.finishedAt;
+    o.peakScore=prevF.peakScore; o.bodyLoad=prevF.bodyLoad;
+    o.plateau=prevF.plateau; o.notes=prevF.notes; }
   SF.forEach(function(i){ o[i]=$(i).value; });
   o.bump=$('c-bump').classList.contains('on');
   o.reta=$('c-reta').classList.contains('on');
@@ -1103,7 +1122,8 @@ function timeToOff(v){
   return off;
 }
 function openSheet(e,sec,timed){
-  var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
+  var bid=e.base||e.id;
+  var info=EV[bid]||(/^ox\d$/.test(bid)?EV.ox0:null);
   var at=ckAt(e.id);
   var state= at?'taken' : (isSkipped(e.id)?'skipped':'pending');
 
@@ -1113,7 +1133,7 @@ function openSheet(e,sec,timed){
      (e.edited?' &middot; edited by you':'')+'</div>';
 
   /* --- what it is --- */
-  var calc=COMPUTED.test(e.id);
+  var calc=COMPUTED.test(bid);
   h+='<div class="panel" style="margin-top:14px">';
   if(calc) h+='<div class="fl">This one is built from your dose settings, so its '+
        'name and note update themselves. You can still change its time.</div>'+
@@ -1176,17 +1196,17 @@ function openSheet(e,sec,timed){
     if(iso) setState(e.id,'taken',iso);
 
     var timeChanged = timed && $('sh-plan') && off!=='' && off!==e.off;
-    var textChanged = !COMPUTED.test(e.id) && (nm!==e.n || nt!==(e.d||''));
+    var textChanged = !COMPUTED.test(bid) && (nm!==e.n || nt!==(e.d||''));
     if(e.custom){ if(textChanged||timeChanged) await updateCustom(e.custom, nm||e.n, nt, off); }
-    else if(textChanged||timeChanged) await saveOverride(e.id, sec, nm, nt, off);
+    else if(textChanged||timeChanged) await saveOverride(bid, sec, nm, nt, off);
     closeSheet();
   };
   if($('sh-take'))  $('sh-take').onclick =function(){ setState(e.id,'taken',actualIso()); closeSheet(); };
   if($('sh-skip'))  $('sh-skip').onclick =function(){ setState(e.id,'skipped'); closeSheet(); };
   if($('sh-clear')) $('sh-clear').onclick=function(){ setState(e.id,'clear'); closeSheet(); };
   if($('sh-del'))   $('sh-del').onclick  =function(){ deleteCustom(e.custom); closeSheet(); };
-  if($('sh-hide'))  $('sh-hide').onclick =function(){ removeBuiltin(e.id); closeSheet(); };
-  if($('sh-reset')) $('sh-reset').onclick=function(){ clearOverride(e.id); closeSheet(); };
+  if($('sh-hide'))  $('sh-hide').onclick =function(){ removeBuiltin(bid); closeSheet(); };
+  if($('sh-reset')) $('sh-reset').onclick=function(){ clearOverride(bid); closeSheet(); };
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 
@@ -1215,9 +1235,11 @@ function openAdd(sec,timed){
 }
 function closeSheet(){ $('sheet').classList.remove('open'); $('shade').classList.remove('open'); }
 
-function rows(target,list,timed,count){
+function rows(target,list,timed,count,dayKey){
   var g=$(target); g.innerHTML=''; var now=Date.now(), done=0;
-  list.forEach(function(e){
+  list.forEach(function(src){
+    var e = dayKey ? {id:src.id+'@'+dayKey, n:src.n, d:src.d, off:src.off,
+                      key:src.key, custom:src.custom, edited:src.edited, base:src.id} : src;
     var on=ck(e.id); if(on||isSkipped(e.id)) done++;
     var at=ckAt(e.id);
     var skip=isSkipped(e.id);
@@ -1242,7 +1264,8 @@ function rows(target,list,timed,count){
       if(cur!==pl) ti.appendChild(el('div','tp',(at?'planned ':'was ')+planned));
     }
 
-    var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
+    var bid=e.base||e.id;
+    var info=EV[bid]||(/^ox\d$/.test(bid)?EV.ox0:null);
     if(info){
       var t=TIER[info.tier]||TIER.A;
       var dot=el('div','dot'); dot.style.background=t[1];
@@ -1283,10 +1306,12 @@ function protocol(){
   var a=rows('g-pre',sortByOff(withCustom(PRE(),'pre')),'pre','n-pre');
   var b=rows('g-peri',sortByOff(withCustom(PERI(),'peri')),1,'n-peri');
   var c=rows('g-bed',withCustom(BED,'bed'),0,'n-bed');
-  rows('g-d1',withCustom(D1,'d1'),0,'n-d1');
-  rows('g-week',withCustom(WEEK,'week'),0,'n-week');
-  rows('g-pep',withCustom(PEP,'pep'),0,'n-pep');
-  rows('g-train',withCustom(TRAIN,'train'),0,'n-train');
+  var rd=recDate();
+  rows('g-d1',   recItems(withCustom(D1,'d1')),      0,'n-d1',   rd);
+  rows('g-week', recItems(withCustom(WEEK,'week')),  0,'n-week', rd);
+  rows('g-pep',  recItems(withCustom(PEP,'pep')),    0,'n-pep',  rd);
+  rows('g-train',recItems(withCustom(TRAIN,'train')),0,'n-train',rd);
+  recBanner();
   var done=a[0]+b[0]+c[0], tot=a[1]+b[1]+c[1];
   var p=tot?done/tot:0, C=2*Math.PI*22;
   $('arc').setAttribute('stroke-dashoffset',String(C*(1-p)));
@@ -1609,20 +1634,30 @@ function sessTable(){
   var t=$('t-sess'); if(!t) return;
   var list=(blind?sess.filter(function(r){return r.person===who;}):sess.slice())
     .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-  var cols=['Date','Who','Start','Dose 1','Dose 2','Bump','Total','Gap'];
+  var cols=['Date','Who','Start','Dose 1','Dose 2','Total','Onset','Peak','Load','Plateau','Gap'];
   var h='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
   if(!list.length){ t.innerHTML=h+'<tr><td colspan="'+cols.length+'">nothing yet</td></tr>'; return; }
   t.innerHTML=h+list.map(function(r){
     var d1=(r['c-d1']||'')+(r['c-v1']?' '+String(r['c-v1']).toLowerCase():'');
     var d2=(r['c-d2']||'')+(r['c-v2']?' '+String(r['c-v2']).toLowerCase():'');
-    var bp=r.bump?((r['c-bd']||'')+' @ '+fmtT(r['c-bt'])):'—';
     var tot=(+r['c-d1']||0)+(+r['c-d2']||0)+(r.bump?(+r['c-bd']||0):0);
+    var ons='—';
+    if(r.feltAt){
+      var ckx=(checks[r.person+'|'+r.date]||{}).dose1, st2=null;
+      if(ckx&&!ckx.skipped) st2=new Date(ckx.at);
+      else if(r['c-t0']){ var pp=String(r['c-t0']).split(':');
+        st2=new Date(r.date+'T00:00:00'); st2.setHours(+pp[0],+pp[1],0,0); }
+      if(st2){ var mm2=Math.round((new Date(r.feltAt)-st2)/60000);
+        if(mm2>0&&mm2<480) ons=mm2+'m'; }
+    }
     return '<tr data-s="'+esc(r.date)+'">'+
-      '<td><b>'+esc(r.date)+'</b></td>'+
+      '<td><b>'+esc(r.date)+'</b>'+(r.finishedAt?' <span style="color:var(--teal2)">&#10003;</span>':'')+'</td>'+
       '<td>'+esc(nameOf(r.person)||r.personName||'')+'</td>'+
       '<td>'+fmtT(r['c-t0'])+'</td>'+
-      '<td>'+esc(d1)+'</td><td>'+esc(d2)+'</td><td>'+esc(bp)+'</td>'+
-      '<td>'+tot+' mg</td>'+
+      '<td>'+esc(d1)+'</td><td>'+esc(d2)+'</td>'+
+      '<td>'+tot+' mg</td><td>'+ons+'</td>'+
+      '<td>'+(r.peakScore||'—')+'</td><td>'+(r.bodyLoad||'—')+'</td>'+
+      '<td>'+(r.plateau?r.plateau+'h':'—')+'</td>'+
       '<td>'+(r.gap==null?'—':r.gap+'d')+'</td></tr>';
   }).join('');
   Array.prototype.forEach.call(t.querySelectorAll('tr[data-s]'),function(tr){
@@ -1704,6 +1739,77 @@ function vev(uid,start,title,body,lead){
   return L.join('\r\n');
 }
 
+
+
+
+/* ---------- finishing a session ---------- */
+function openFinish(){
+  var r=find(sess,$('c-date').value)||{};
+  var h='<h3>How did it go?</h3>'+
+    '<div style="color:var(--sec);font-size:13px">'+esc($('c-date').value)+'</div>'+
+    '<div class="panel" style="margin-top:14px">'+
+    '<div class="ctl"><label for="f-peak">Peak, 1 to 10</label>'+
+      '<input type="number" id="f-peak" min="1" max="10" inputmode="numeric" value="'+(r.peakScore||'')+'"></div>'+
+    '<div class="ctl"><label for="f-load">Body load, 1 to 10</label>'+
+      '<input type="number" id="f-load" min="1" max="10" inputmode="numeric" value="'+(r.bodyLoad||'')+'"></div>'+
+    '<div class="ctl"><label for="f-plat">Plateau, hours</label>'+
+      '<input type="number" id="f-plat" step="0.5" inputmode="decimal" value="'+(r.plateau||'')+'"></div>'+
+    '<div class="fl">Anything worth remembering</div><div class="wd">'+
+      '<textarea id="f-notes" rows="3">'+esc(r.notes||'')+'</textarea></div></div>'+
+    '<button class="btn t" id="f-go">Log it</button>'+
+    '<button class="btn g" id="f-x">Cancel</button>';
+  $('sheet').innerHTML=h; addClears();
+  $('f-go').onclick=function(){
+    var o=readSetup();
+    o.peakScore=num('f-peak'); o.bodyLoad=num('f-load');
+    o.plateau=num('f-plat'); o.notes=$('f-notes').value.trim();
+    o.finishedAt=new Date().toISOString();
+    var b=this; b.textContent='Saving\u2026'; b.disabled=true;
+    SB.from('sessions').upsert(setupToRow(o),{onConflict:'user_id,subject,session_date'})
+      .then(function(res){
+        b.disabled=false;
+        if(wrote(res,'how it went')){ draftClear(); pull(); closeSheet(); }
+        else b.textContent='Log it';
+      });
+  };
+  $('f-x').onclick=closeSheet;
+  $('sheet').classList.add('open'); $('shade').classList.add('open');
+}
+
+/* ---------- recovery days ----------
+   Recovery items are ticked per calendar day, not per session, so day 1 and
+   day 2 never share a check-off. */
+var RECDATE=null;
+function recDate(){ return RECDATE || $('rec-date').value || todayStr(); }
+function lastSessionOnOrBefore(d){
+  var c=sess.filter(function(r){ return r.person===who && r.date<=d; })
+            .sort(function(a,b){ return a.date.localeCompare(b.date); });
+  return c.length?c[c.length-1]:null;
+}
+function dayIndex(d){
+  var s0=lastSessionOnOrBefore(d); if(!s0) return null;
+  return Math.round((new Date(d+'T00:00:00')-new Date(s0.date+'T00:00:00'))/86400000);
+}
+function recBanner(){
+  var d=recDate(), n=dayIndex(d), s0=lastSessionOnOrBefore(d);
+  var k=$('recday'), v=$('recwhat');
+  if(n===null){ k.textContent='NO SESSION YET'; v.textContent='Log a session first'; return; }
+  if(n===0){ k.textContent='SESSION DAY'; v.textContent='Tonight'; return; }
+  k.textContent='DAY '+n+(n===1?' \u00b7 THE MORNING AFTER':'');
+  v.innerHTML = n===1 ? 'Tyrosine, food, sunlight'
+    : (n<=10 ? 'Morning and evening stack'+(n>=3?' \u00b7 no ALA':'')
+             : 'Clear \u2014 '+n+' days out');
+  $('rechero').className='hero '+(n===1?'soon':(n<=10?'idle':'idle'));
+}
+/* which recovery items apply on the day being shown */
+function recItems(list){
+  var n=dayIndex(recDate());
+  return list.filter(function(e){
+    if(e.day===undefined) return true;
+    if(n===null) return true;
+    return n>=e.day[0] && n<=e.day[1];
+  });
+}
 
 /* ---------- onset ---------- */
 function doseActual(){
@@ -2101,10 +2207,15 @@ $('felt-time').addEventListener('change',function(){
 });
 initPush();
 
+
+$('finishsession').onclick=openFinish;
+if(!$('rec-date').value) $('rec-date').value=todayStr();
+$('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol(); });
+
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-180645';
+var BUILD='20261122-091040';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })

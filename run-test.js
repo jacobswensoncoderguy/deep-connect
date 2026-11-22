@@ -38,7 +38,7 @@ setTimeout(()=>{
       name:'Ketamine 40 mg',detail:'IM',off_min:90,builtin_id:null}];
     w.protocol();
     if(!d.getElementById('g-peri').textContent.includes('Ketamine')) throw new Error('not shown'); });
-  T('override renames builtin',()=>{ w.customs=[{id:'X2',section:'pre',subject_id:'U1',
+  T('override renames builtin',()=>{ w.checks={}; w.hidden=[]; w.RECDATE=null; w.customs=[{id:'X2',section:'pre',subject_id:'U1',
       name:'Tadalafil 10 mg',detail:null,off_min:-45,builtin_id:'tad'}];
     w.protocol();
     if(!d.getElementById('g-pre').textContent.includes('Tadalafil 10 mg')) throw new Error('not renamed'); });
@@ -81,7 +81,7 @@ setTimeout(()=>{
     w.openSheet(dose1,'peri',true);
     if(d.getElementById('sh-plan').value!=='18:30')
       throw new Error('got '+d.getElementById('sh-plan').value); });
-  T('computed items cannot freeze their text',()=>{
+  T('computed items cannot freeze their text',()=>{ w.checks={}; w.hidden=[]; w.RECDATE=null;
     w.customs=[{id:'Z',section:'peri',subject_id:'U1',builtin_id:'dose1',
       name:'STALE TEXT',detail:'stale',off_min:null}];
     w.protocol();
@@ -103,16 +103,29 @@ setTimeout(()=>{
     w.protocol();
     if(!txt().includes('6:28 PM')) throw new Error('dose2 did not shift: '+txt().slice(0,200));
     if(!txt().includes('was 7:30 PM')) throw new Error('original time not shown'); });
-  T('calendar uses UTC stamps',()=>{ const ics=w.buildIcs();
+  // calendar only schedules what is still ahead, so test against a future session
+  const FD=new Date(Date.now()+86400000);
+  const FS=FD.getFullYear()+'-'+String(FD.getMonth()+1).padStart(2,'0')+'-'+String(FD.getDate()).padStart(2,'0');
+  const calSetup=()=>{ w.customs=[]; w.hidden=[]; w.sess=[]; w.RECDATE=null;
+    d.getElementById('c-date').value=FS;
+    d.getElementById('c-t0').value='18:30';
+    d.getElementById('rec-date').value=FS;
+    w.checks={[`U1|${FS}`]:{dose1:{at:new Date(FS+'T17:28:00').toISOString(),skipped:false}}};
+    w.protocol(); };
+  T('calendar uses UTC stamps',()=>{ calSetup(); const ics=w.buildIcs();
     const dts=ics.match(/DTSTART:\d{8}T\d{6}Z/g)||[];
     if(!dts.length) throw new Error('no UTC DTSTART'); 
     if(/TZID=/.test(ics)) throw new Error('still emitting TZID'); });
-  T('calendar follows actuals',()=>{ const ics=w.buildIcs();
+  T('calendar follows actuals',()=>{ calSetup(); const ics=w.buildIcs();
     // dose2 anchored to 5:28 start = 6:28 PM Boise = 01:28Z next day
-    if(!ics.includes('20261122T012800Z')) throw new Error('dose2 not re-anchored in ics'); });
-  T('calendar skips what is done',()=>{ const ics=w.buildIcs();
+    const want=new Date(FS+'T18:28:00');
+    const z=want.getUTCFullYear()+String(want.getUTCMonth()+1).padStart(2,'0')+
+      String(want.getUTCDate()).padStart(2,'0')+'T'+String(want.getUTCHours()).padStart(2,'0')+
+      String(want.getUTCMinutes()).padStart(2,'0')+'00Z';
+    if(!ics.includes(z)) throw new Error('dose2 not re-anchored: want '+z); });
+  T('calendar skips what is done',()=>{ calSetup(); const ics=w.buildIcs();
     if(/SUMMARY:Dose 1/.test(ics)) throw new Error('already-taken item still scheduled'); });
-  T('calendar includes custom items',()=>{
+  T('calendar includes custom items',()=>{ calSetup();
     w.customs=[{id:'K',section:'peri',subject_id:'U1',name:'Ketamine 40 mg',detail:'',off_min:120,builtin_id:null}];
     const ics=w.buildIcs(); w.customs=[];
     if(!/Ketamine/.test(ics)) throw new Error('custom item missing from calendar'); });
@@ -135,6 +148,39 @@ setTimeout(()=>{
     if(L.some(x=>x.item_id==='dose1')) throw new Error('already-taken item queued'); });
   T('service worker file referenced',()=>{
     if(!/sw\.js/.test(d.documentElement.innerHTML)) throw new Error('no sw.js'); });
+  T('recovery is day aware',()=>{
+    w.sess=[{date:'2026-11-21',person:'U1','c-t0':'18:30','c-d1':100,'c-v1':'Liquid softgel',
+      'c-d2':100,'c-v2':'Gummies',bump:false,gap:7}];
+    w.checks={}; w.customs=[]; w.hidden=[];
+    d.getElementById('rec-date').value='2026-11-22'; w.RECDATE='2026-11-22'; w.protocol();
+    if(!d.getElementById('recday').textContent.includes('DAY 1')) throw new Error('banner: '+d.getElementById('recday').textContent);
+    if(!d.getElementById('g-d1').textContent.includes('tyrosine')) throw new Error('day 1 items missing');
+    if(d.getElementById('g-week').textContent.includes('Morning')) throw new Error('day 2-10 items showing on day 1'); });
+  T('day 3 drops ALA and shows week stack',()=>{
+    d.getElementById('rec-date').value='2026-11-24'; w.RECDATE='2026-11-24'; w.protocol();
+    if(!d.getElementById('recday').textContent.includes('DAY 3')) throw new Error('wrong day');
+    if(!d.getElementById('g-week').textContent.includes('No ALA from today')) throw new Error('ALA note missing');
+    if(d.getElementById('g-d1').textContent.includes('tyrosine')) throw new Error('day 1 items still showing'); });
+  T('recovery check-offs are per day',()=>{
+    w.RECDATE='2026-11-22'; w.protocol();
+    const tile=[...d.getElementById('g-d1').querySelectorAll('.ti')][0];
+    const tick=tile.querySelector('.tick'); tick.onclick({stopPropagation(){}});
+    w.RECDATE='2026-11-23'; w.protocol();
+    const t2=[...d.getElementById('g-week').querySelectorAll('.ti')][0];
+    if(t2 && t2.querySelector('.tick').classList.contains('on'))
+      throw new Error('tick leaked across days'); 
+    w.checks={}; w.RECDATE='2026-11-22'; });
+  T('finish session sheet',()=>{
+    w.openFinish();
+    ['f-peak','f-load','f-plat','f-notes','f-go'].forEach(id=>{
+      if(!d.getElementById(id)) throw new Error('missing '+id); }); });
+  T('history shows outcome columns',()=>{
+    w.sess=[{date:'2026-11-21',person:'U1','c-t0':'18:30','c-d1':100,'c-v1':'Liquid softgel',
+      'c-d2':100,'c-v2':'Gummies',bump:false,gap:7,peakScore:8,bodyLoad:6,plateau:3.5,
+      finishedAt:new Date().toISOString()}];
+    w.render();
+    const t=d.getElementById('t-sess').textContent;
+    if(!t.includes('Peak')||!t.includes('3.5h')) throw new Error('got '+t.slice(0,200)); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 
