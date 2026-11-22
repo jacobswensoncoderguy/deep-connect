@@ -942,17 +942,52 @@ function toggle(id){ setState(id, resolved(id) ? 'clear' : 'taken'); }
 function mineSubj(r){ return (r.subject_id||'__them')===who; }
 function isHidden(id){ return hidden.some(function(h){ return h.item_id===id && mineSubj(h); }); }
 function customFor(sec){
-  return customs.filter(function(c){ return c.section===sec && mineSubj(c); })
+  return customs.filter(function(c){ return c.section===sec && mineSubj(c) && !c.builtin_id; })
     .map(function(c){ return {id:'c_'+c.id, off:(c.off_min===null?null:c.off_min),
       n:c.name, d:c.detail||'', custom:c.id}; });
 }
+function overrideFor(id){
+  return customs.filter(function(c){ return c.builtin_id===id && mineSubj(c); })[0]||null;
+}
+/* a built-in you have renamed or retimed shows your version */
+function applyOverride(e){
+  var o=overrideFor(e.id); if(!o) return e;
+  return {id:e.id, key:e.key,
+    off:(o.off_min===null||o.off_min===undefined)?e.off:o.off_min,
+    n:o.name||e.n, d:(o.detail!==null&&o.detail!==undefined&&o.detail!=='')?o.detail:e.d,
+    override:o.id, edited:true};
+}
 function withCustom(list,sec){
-  var out=list.filter(function(e){ return !isHidden(e.id); }).concat(customFor(sec));
-  return out;
+  return list.filter(function(e){ return !isHidden(e.id); })
+             .map(applyOverride)
+             .concat(customFor(sec));
 }
 function sortByOff(a){
   return a.sort(function(x,y){
     return (x.off===null||x.off===undefined?1e9:x.off)-(y.off===null||y.off===undefined?1e9:y.off); });
+}
+async function saveOverride(id,sec,name,detail,offMin){
+  if(!canWrite()) return;
+  var ex=overrideFor(id), body={
+    couple_id:COUPLE, subject_id:subjMatch(), entered_by_id:UID,
+    section:sec, builtin_id:id, name:name||null, detail:detail||null,
+    off_min:(offMin===''||offMin===null||offMin===undefined?null:offMin)};
+  var r = ex ? await SB.from('custom_items').update(body).match({id:ex.id,entered_by_id:UID})
+             : await SB.from('custom_items').insert(body);
+  if(wrote(r,'that change')) await pull();
+}
+async function updateCustom(cid,name,detail,offMin){
+  if(!canWrite()) return;
+  var r=await SB.from('custom_items').update({name:name, detail:detail||null,
+    off_min:(offMin===''||offMin===null||offMin===undefined?null:offMin)})
+    .match({id:cid, entered_by_id:UID});
+  if(wrote(r,'that edit')) await pull();
+}
+async function clearOverride(id){
+  if(!canWrite()) return;
+  var ex=overrideFor(id); if(!ex) return;
+  var r=await SB.from('custom_items').delete().match({id:ex.id,entered_by_id:UID});
+  if(wrote(r,'that reset')) await pull();
 }
 async function addCustom(sec,name,detail,offMin){
   if(!canWrite()) return;
@@ -980,35 +1015,69 @@ async function restoreAll(){
 /* which section a grid belongs to, for the Add tile */
 var SECOF={'g-pre':'pre','g-peri':'peri','g-bed':'bed','g-d1':'d1',
   'g-week':'week','g-pep':'pep','g-train':'train'};
-function promptAdd(sec,timed){
-  var name=prompt('What are you adding? (e.g. Ketamine 40 mg)');
-  if(!name||!name.trim()) return;
-  var detail=prompt('Any note? (optional)')||'';
-  var off='';
-  if(timed){
-    var t=prompt('Minutes from your first dose. Negative for before.\nLeave blank for no set time.','0');
-    if(t!==null&&t.trim()!=='') off=parseInt(t,10);
-    if(isNaN(off)) off='';
-  }
-  addCustom(sec,name.trim(),detail.trim(),off);
-}
+
 
 function shortName(n){
   var p=String(n).split(/\s+[\u2014-]\s+/);
   return p.length>1 ? [p[0], p.slice(1).join(' ')] : [p[0], ''];
 }
-function openSheet(e){
+function offToTime(off){
+  var am=absMin(off); if(am===null) return '';
+  var m=((am%1440)+1440)%1440;
+  return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2);
+}
+function timeToOff(v){
+  var t0=mins($('c-t0').value); if(t0===null||!v) return '';
+  var p=v.split(':'), m=(+p[0])*60+(+p[1]);
+  var off=m-t0-drift();
+  if(off<-720) off+=1440;        /* entered a time after midnight */
+  if(off>1020) off-=1440;
+  return off;
+}
+function openSheet(e,sec,timed){
   var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
-  var at=ckAt(e.id), when;
-  if(at){ var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
-    when='Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm+' '+(h>=12?'PM':'AM'); }
-  else if(isSkipped(e.id)) when='Not taking this';
-  else when=(e.off===null?'At jaw onset':clock(e.off));
-  var html='<h3>'+e.n+'</h3><div class="why" style="color:var(--sec);font-size:13px">'+when+'</div>';
-  if(e.d) html+='<div style="margin-top:10px;font-size:14px;color:var(--sec)">'+e.d+'</div>';
+  var at=ckAt(e.id);
+  var state= at?'taken' : (isSkipped(e.id)?'skipped':'pending');
+
+  var h='<h3>'+esc(e.n)+'</h3>';
+  h+='<div style="color:var(--sec);font-size:13px">'+
+     (state==='taken'?'Taken':state==='skipped'?'Not taking this':'Not yet')+
+     (e.edited?' &middot; edited by you':'')+'</div>';
+
+  /* --- what it is --- */
+  h+='<div class="panel" style="margin-top:14px">'+
+     '<div class="ctl"><label for="sh-name">Name</label>'+
+       '<input id="sh-name" maxlength="80" value="'+esc(e.n).replace(/"/g,'&quot;')+'"></div>'+
+     '<div class="fl">Note</div><div class="wd">'+
+       '<textarea id="sh-note" rows="2">'+esc(e.d||'')+'</textarea></div>';
+  if(timed) h+='<div class="ctl"><label for="sh-plan">Scheduled for</label>'+
+       '<input type="time" id="sh-plan" value="'+offToTime(e.off)+'"></div>';
+  h+='</div>';
+
+  /* --- when you actually took it --- */
+  var dv=$('c-date').value||todayStr(), tv='';
+  if(at){ var d=new Date(at);
+    dv=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+    tv=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
+  h+='<div class="panel" style="margin-top:10px">'+
+     '<div class="ctl"><label for="sh-date">Date taken</label>'+
+       '<input type="date" id="sh-date" value="'+dv+'"></div>'+
+     '<div class="ctl"><label for="sh-time">Time taken</label>'+
+       '<input type="time" id="sh-time" value="'+tv+'"></div></div>';
+
+  h+='<button class="btn t" id="sh-save">Save</button>';
+  if(state!=='taken')   h+='<button class="btn b" id="sh-take">Mark taken now</button>';
+  if(state!=='skipped') h+='<button class="btn g" id="sh-skip">Not taking this</button>';
+  if(state!=='pending') h+='<button class="btn g" id="sh-clear">Back to not yet</button>';
+  if(e.custom)        h+='<button class="btn r" id="sh-del">Delete this item</button>';
+  else {
+    if(e.edited)      h+='<button class="btn g" id="sh-reset">Undo my edits</button>';
+    h+='<button class="btn r" id="sh-hide">Remove from my protocol</button>';
+  }
+
   if(info){
     var t=TIER[info.tier]||TIER.A;
-    html+='<div class="infobar" style="margin-top:14px"><span class="badge">'+
+    h+='<div class="infobar" style="margin-top:16px"><span class="badge">'+
       '<i style="background:'+t[1]+'"></i>'+t[0]+'</span></div>'+
       '<div class="det open" style="margin-top:10px">'+
       '<div class="dl">Dose</div><div class="dv">'+info.dose+'</div>'+
@@ -1017,28 +1086,55 @@ function openSheet(e){
       (info.note?'<div class="dl">Watch</div><div class="dv">'+info.note+'</div>':'')+
       (info.src?'<a class="sl" href="'+info.src+'">Source</a>':'')+'</div>';
   }
-  var tv='';
-  if(at){ var dd=new Date(at); tv=('0'+dd.getHours()).slice(-2)+':'+('0'+dd.getMinutes()).slice(-2); }
-  html+='<div class="panel" style="margin-top:14px">'+
-    '<div class="ctl"><label for="sh-time">Time actually taken</label>'+
-    '<input type="time" id="sh-time" value="'+tv+'"></div></div>';
-  html+='<button class="btn t" id="sh-take">'+(ck(e.id)?'Update the time':'Mark as taken')+'</button>';
-  if(!isSkipped(e.id)) html+='<button class="btn g" id="sh-skip">Not taking this</button>';
-  if(resolved(e.id)) html+='<button class="btn r" id="sh-clear">Clear &mdash; back to pending</button>';
-  html+= e.custom
-    ? '<button class="btn r" id="sh-del">Delete this item</button>'
-    : '<button class="btn g" id="sh-hide">Remove from my protocol</button>';
-  $('sheet').innerHTML=html;
-  $('sh-take').onclick=function(){
-    var v=$('sh-time').value, iso=null;
-    if(v){ var p=v.split(':'), base=$('c-date').value||todayStr();
-      var nd=new Date(base+'T00:00:00'); nd.setHours(+p[0],+p[1],0,0); iso=nd.toISOString(); }
-    setState(e.id,'taken',iso); closeSheet();
+  $('sheet').innerHTML=h;
+  addClears();
+
+  function actualIso(){
+    var dd=$('sh-date').value, tt=$('sh-time').value;
+    if(!tt) return null;
+    var p=tt.split(':'), nd=new Date((dd||todayStr())+'T00:00:00');
+    nd.setHours(+p[0],+p[1],0,0); return nd.toISOString();
+  }
+  $('sh-save').onclick=async function(){
+    var nm=$('sh-name').value.trim(), nt=$('sh-note').value.trim();
+    var off= timed && $('sh-plan') ? timeToOff($('sh-plan').value) : '';
+    if(e.custom) await updateCustom(e.custom, nm||e.n, nt, off);
+    else if(nm!==e.n || nt!==(e.d||'') || (timed && off!==''&&off!==e.off))
+      await saveOverride(e.id, sec, nm, nt, off);
+    var iso=actualIso();
+    if(iso) setState(e.id,'taken',iso);
+    closeSheet();
   };
-  if($('sh-skip')) $('sh-skip').onclick=function(){ setState(e.id,'skipped'); closeSheet(); };
+  if($('sh-take'))  $('sh-take').onclick =function(){ setState(e.id,'taken',actualIso()); closeSheet(); };
+  if($('sh-skip'))  $('sh-skip').onclick =function(){ setState(e.id,'skipped'); closeSheet(); };
   if($('sh-clear')) $('sh-clear').onclick=function(){ setState(e.id,'clear'); closeSheet(); };
-  if($('sh-del')) $('sh-del').onclick=function(){ deleteCustom(e.custom); closeSheet(); };
-  if($('sh-hide')) $('sh-hide').onclick=function(){ removeBuiltin(e.id); closeSheet(); };
+  if($('sh-del'))   $('sh-del').onclick  =function(){ deleteCustom(e.custom); closeSheet(); };
+  if($('sh-hide'))  $('sh-hide').onclick =function(){ removeBuiltin(e.id); closeSheet(); };
+  if($('sh-reset')) $('sh-reset').onclick=function(){ clearOverride(e.id); closeSheet(); };
+  $('sheet').classList.add('open'); $('shade').classList.add('open');
+}
+
+/* ---------- add a new item, same sheet ---------- */
+function openAdd(sec,timed){
+  var h='<h3>Add to your protocol</h3>'+
+    '<div class="panel" style="margin-top:14px">'+
+    '<div class="ctl"><label for="ad-name">What</label>'+
+      '<input id="ad-name" maxlength="80" placeholder="Ketamine 40 mg"></div>'+
+    '<div class="fl">Note</div><div class="wd">'+
+      '<textarea id="ad-note" rows="2" placeholder="Optional"></textarea></div>'+
+    (timed?'<div class="ctl"><label for="ad-time">When</label>'+
+      '<input type="time" id="ad-time"></div>':'')+
+    '</div>'+
+    '<button class="btn t" id="ad-go">Add it</button>'+
+    '<button class="btn g" id="ad-x">Cancel</button>';
+  $('sheet').innerHTML=h; addClears();
+  $('ad-go').onclick=async function(){
+    var nm=$('ad-name').value.trim(); if(!nm){ $('ad-name').focus(); return; }
+    var off = timed && $('ad-time') && $('ad-time').value ? timeToOff($('ad-time').value) : '';
+    await addCustom(sec, nm, $('ad-note').value.trim(), off);
+    closeSheet();
+  };
+  $('ad-x').onclick=closeSheet;
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 function closeSheet(){ $('sheet').classList.remove('open'); $('shade').classList.remove('open'); }
@@ -1071,7 +1167,7 @@ function rows(target,list,timed,count){
     }
     var inf=el('button','inf','&#9432;'); inf.type='button';
     inf.setAttribute('aria-label','Details for '+e.n);
-    inf.onclick=function(k){ k.stopPropagation(); openSheet(e); };
+    inf.onclick=function(k){ k.stopPropagation(); openSheet(e,SECOF[target]||'peri',!!timed); };
     ti.appendChild(inf);
 
     if(timed&&!on&&e.off!==null){
@@ -1088,7 +1184,7 @@ function rows(target,list,timed,count){
   var add=el('div','ti addtile');
   add.innerHTML='<div class="tn">+ Add</div><div class="td">compound or step</div>';
   add.setAttribute('role','button'); add.setAttribute('tabindex','0');
-  add.onclick=function(){ promptAdd(SECOF[target]||'peri', !!timed); };
+  add.onclick=function(){ openAdd(SECOF[target]||'peri', !!timed); };
   g.appendChild(add);
 
   if(count) $(count).textContent=done+' of '+list.length;
@@ -1711,7 +1807,7 @@ $('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-171359';
+var BUILD='20261121-171515';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
