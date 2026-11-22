@@ -156,6 +156,10 @@ section.on{display:block}
   border-color:rgba(20,184,166,.45)}
 .ti.done .tw{color:var(--teal2)}
 .ti.skip{opacity:.5;border-style:dashed}
+.ti.addtile{border-style:dashed;border-color:var(--line);background:transparent;
+  align-items:center;justify-content:center;text-align:center;opacity:.7}
+.ti.addtile .tn{color:var(--sec)}
+.ti.addtile::after{content:none}
 .ti.skip .tw{color:var(--dim)}
 .ti.skip .tn{text-decoration:line-through;text-decoration-color:var(--dim)}
 .ti.done::after{content:"\2713";position:absolute;right:8px;top:7px;
@@ -465,6 +469,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="panel"><div class="ctl"><label id="revtxt">Only mine</label>
     <button class="tg" id="blind" role="switch" aria-checked="false" aria-label="Show both people"></button></div></div>
   <div class="scroll" style="margin-top:9px"><table id="t-daily"></table></div>
+  <button class="btn g" id="restore">Put back everything I removed</button>
   <button class="btn g" id="copy">Copy it all to the clipboard</button>
   <button class="btn r" id="signout">Sign out</button>
   <div class="hint" id="status">Connecting&hellip;</div>
@@ -481,6 +486,7 @@ const SB_URL='https://kobqqqenjdpmnvlhhlgo.supabase.co';
 const SB_KEY='sb_publishable_OqfzVMWOZjTjq-C0mdB8zQ_9e_cv-QY';
 var SB=null, UID=null, ME=null, COUPLE=null, PEOPLE=[];
 var who=null, proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
+var customs=[], hidden=[];
 function meRow(){ return PEOPLE.filter(function(p){return p.id===UID;})[0]||null; }
 function personOf(id){ return PEOPLE.filter(function(p){return p.id===id;})[0]||null; }
 function nameOf(id){ if(id==='__them') return theirName();
@@ -563,6 +569,9 @@ async function pull(){
   var a=await SB.from('day_logs').select('*');
   var b=await SB.from('sessions').select('*');
   var c=await SB.from('check_offs').select('*');
+  var ci=await SB.from('custom_items').select('*');
+  var hi=await SB.from('hidden_items').select('*');
+  customs=(ci.data||[]); hidden=(hi.data||[]);
   daily=pick(a.data||[],'log_date').map(rowToDay);
   sess =pick(b.data||[],'session_date').map(rowToSetup);
   checks={};
@@ -928,6 +937,62 @@ function setState(id,state,whenIso){
 }
 function toggle(id){ setState(id, resolved(id) ? 'clear' : 'taken'); }
 
+
+/* ---------- custom and hidden items ---------- */
+function mineSubj(r){ return (r.subject_id||'__them')===who; }
+function isHidden(id){ return hidden.some(function(h){ return h.item_id===id && mineSubj(h); }); }
+function customFor(sec){
+  return customs.filter(function(c){ return c.section===sec && mineSubj(c); })
+    .map(function(c){ return {id:'c_'+c.id, off:(c.off_min===null?null:c.off_min),
+      n:c.name, d:c.detail||'', custom:c.id}; });
+}
+function withCustom(list,sec){
+  var out=list.filter(function(e){ return !isHidden(e.id); }).concat(customFor(sec));
+  return out;
+}
+function sortByOff(a){
+  return a.sort(function(x,y){
+    return (x.off===null||x.off===undefined?1e9:x.off)-(y.off===null||y.off===undefined?1e9:y.off); });
+}
+async function addCustom(sec,name,detail,offMin){
+  if(!canWrite()) return;
+  var r=await SB.from('custom_items').insert({
+    couple_id:COUPLE, subject_id:subjMatch(), entered_by_id:UID,
+    section:sec, name:name, detail:detail||null, off_min:(offMin===''?null:offMin)});
+  if(wrote(r,'that item')) await pull();
+}
+async function removeBuiltin(id){
+  if(!canWrite()) return;
+  var r=await SB.from('hidden_items').insert({
+    couple_id:COUPLE, subject_id:subjMatch(), entered_by_id:UID, item_id:id});
+  if(wrote(r,'that removal')) await pull();
+}
+async function deleteCustom(cid){
+  if(!canWrite()) return;
+  var r=await SB.from('custom_items').delete().match({id:cid, entered_by_id:UID});
+  if(wrote(r,'that deletion')) await pull();
+}
+async function restoreAll(){
+  if(!canWrite()) return;
+  var r=await SB.from('hidden_items').delete().match({entered_by_id:UID});
+  if(wrote(r,'the restore')) await pull();
+}
+/* which section a grid belongs to, for the Add tile */
+var SECOF={'g-pre':'pre','g-peri':'peri','g-bed':'bed','g-d1':'d1',
+  'g-week':'week','g-pep':'pep','g-train':'train'};
+function promptAdd(sec,timed){
+  var name=prompt('What are you adding? (e.g. Ketamine 40 mg)');
+  if(!name||!name.trim()) return;
+  var detail=prompt('Any note? (optional)')||'';
+  var off='';
+  if(timed){
+    var t=prompt('Minutes from your first dose. Negative for before.\nLeave blank for no set time.','0');
+    if(t!==null&&t.trim()!=='') off=parseInt(t,10);
+    if(isNaN(off)) off='';
+  }
+  addCustom(sec,name.trim(),detail.trim(),off);
+}
+
 function shortName(n){
   var p=String(n).split(/\s+[\u2014-]\s+/);
   return p.length>1 ? [p[0], p.slice(1).join(' ')] : [p[0], ''];
@@ -960,6 +1025,9 @@ function openSheet(e){
   html+='<button class="btn t" id="sh-take">'+(ck(e.id)?'Update the time':'Mark as taken')+'</button>';
   if(!isSkipped(e.id)) html+='<button class="btn g" id="sh-skip">Not taking this</button>';
   if(resolved(e.id)) html+='<button class="btn r" id="sh-clear">Clear &mdash; back to pending</button>';
+  html+= e.custom
+    ? '<button class="btn r" id="sh-del">Delete this item</button>'
+    : '<button class="btn g" id="sh-hide">Remove from my protocol</button>';
   $('sheet').innerHTML=html;
   $('sh-take').onclick=function(){
     var v=$('sh-time').value, iso=null;
@@ -969,6 +1037,8 @@ function openSheet(e){
   };
   if($('sh-skip')) $('sh-skip').onclick=function(){ setState(e.id,'skipped'); closeSheet(); };
   if($('sh-clear')) $('sh-clear').onclick=function(){ setState(e.id,'clear'); closeSheet(); };
+  if($('sh-del')) $('sh-del').onclick=function(){ deleteCustom(e.custom); closeSheet(); };
+  if($('sh-hide')) $('sh-hide').onclick=function(){ removeBuiltin(e.id); closeSheet(); };
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 function closeSheet(){ $('sheet').classList.remove('open'); $('shade').classList.remove('open'); }
@@ -1015,15 +1085,23 @@ function rows(target,list,timed,count){
     ti.onkeydown=function(k){ if(k.key==='Enter'||k.key===' '){ k.preventDefault(); toggle(e.id); } };
     g.appendChild(ti);
   });
+  var add=el('div','ti addtile');
+  add.innerHTML='<div class="tn">+ Add</div><div class="td">compound or step</div>';
+  add.setAttribute('role','button'); add.setAttribute('tabindex','0');
+  add.onclick=function(){ promptAdd(SECOF[target]||'peri', !!timed); };
+  g.appendChild(add);
+
   if(count) $(count).textContent=done+' of '+list.length;
   return [done,list.length];
 }
 function protocol(){
-  var a=rows('g-pre',PRE(),'pre','n-pre');
-  var b=rows('g-peri',PERI(),1,'n-peri');
-  var c=rows('g-bed',BED,0,'n-bed');
-  rows('g-d1',D1,0,'n-d1'); rows('g-week',WEEK,0,'n-week');
-  rows('g-pep',PEP,0,'n-pep'); rows('g-train',TRAIN,0,'n-train');
+  var a=rows('g-pre',sortByOff(withCustom(PRE(),'pre')),'pre','n-pre');
+  var b=rows('g-peri',sortByOff(withCustom(PERI(),'peri')),1,'n-peri');
+  var c=rows('g-bed',withCustom(BED,'bed'),0,'n-bed');
+  rows('g-d1',withCustom(D1,'d1'),0,'n-d1');
+  rows('g-week',withCustom(WEEK,'week'),0,'n-week');
+  rows('g-pep',withCustom(PEP,'pep'),0,'n-pep');
+  rows('g-train',withCustom(TRAIN,'train'),0,'n-train');
   var done=a[0]+b[0]+c[0], tot=a[1]+b[1]+c[1];
   var p=tot?done/tot:0, C=2*Math.PI*22;
   $('arc').setAttribute('stroke-dashoffset',String(C*(1-p)));
@@ -1629,10 +1707,11 @@ function addClears(){
 addClears();
 document.addEventListener('input',function(){ addClears(); });
 
+$('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-171207';
+var BUILD='20261121-171359';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
