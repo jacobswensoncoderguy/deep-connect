@@ -95,6 +95,27 @@ setTimeout(()=>{
     w.checks={}; });
   T('clear buttons exist',()=>{ w.addClears();
     if(!d.querySelectorAll('.clr').length) throw new Error('none'); });
+  T('actual dose re-anchors everything',()=>{
+    w.checks={}; w.customs=[]; w.hidden=[]; w.protocol();
+    const txt=()=>d.getElementById('g-peri').textContent;
+    if(!txt().includes('7:30 PM')) throw new Error('planned dose2 missing');
+    w.checks={'U1|2026-11-21':{dose1:{at:new Date('2026-11-21T17:28:00').toISOString(),skipped:false}}};
+    w.protocol();
+    if(!txt().includes('6:28 PM')) throw new Error('dose2 did not shift: '+txt().slice(0,200));
+    if(!txt().includes('was 7:30 PM')) throw new Error('original time not shown'); });
+  T('calendar uses UTC stamps',()=>{ const ics=w.buildIcs();
+    const dts=ics.match(/DTSTART:\d{8}T\d{6}Z/g)||[];
+    if(!dts.length) throw new Error('no UTC DTSTART'); 
+    if(/TZID=/.test(ics)) throw new Error('still emitting TZID'); });
+  T('calendar follows actuals',()=>{ const ics=w.buildIcs();
+    // dose2 anchored to 5:28 start = 6:28 PM Boise = 01:28Z next day
+    if(!ics.includes('20261122T012800Z')) throw new Error('dose2 not re-anchored in ics'); });
+  T('calendar skips what is done',()=>{ const ics=w.buildIcs();
+    if(/SUMMARY:Dose 1/.test(ics)) throw new Error('already-taken item still scheduled'); });
+  T('calendar includes custom items',()=>{
+    w.customs=[{id:'K',section:'peri',subject_id:'U1',name:'Ketamine 40 mg',detail:'',off_min:120,builtin_id:null}];
+    const ics=w.buildIcs(); w.customs=[];
+    if(!/Ketamine/.test(ics)) throw new Error('custom item missing from calendar'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 

@@ -1202,21 +1202,23 @@ function rows(target,list,timed,count){
     var skip=isSkipped(e.id);
     var ti=el('div','ti'+(e.key?' key':'')+(on?' done':'')+(skip?' skip':''));
 
-    var w, planned = timed ? (e.off===null?'At jaw onset':plannedClock(e.off)) : '';
+    var planned = timed ? (e.off===null?'At jaw onset':plannedClock(e.off)) : '';
+    var sched   = timed ? (e.off===null?'At jaw onset':clock(e.off)) : '';
+    var w;
     if(at){ var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
       w='Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm; }
     else if(skip) w='Skipped';
-    else w=planned;
+    else w=sched;          /* the anchored time: shifts with what you actually took */
     if(w) ti.appendChild(el('div','tw',w));
 
     var parts=shortName(e.n);
     ti.appendChild(el('div','tn',parts[0]));
     if(parts[1]) ti.appendChild(el('div','td',parts[1]));
     /* when you took it at a different time than planned, show both */
-    if(at&&planned){
-      var hhmm=w.replace('Taken ','');
-      var plShort=planned.replace(/ (AM|PM)$/,'');
-      if(hhmm!==plShort) ti.appendChild(el('div','tp','planned '+planned));
+    if(planned){
+      var cur=w.replace('Taken ','').replace(/ (AM|PM)$/,'');
+      var pl=planned.replace(/ (AM|PM)$/,'');
+      if(cur!==pl) ti.appendChild(el('div','tp',(at?'planned ':'was ')+planned));
     }
 
     var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
@@ -1664,10 +1666,16 @@ function saveFile(name,text){
 function p2(n){ return (n<10?'0':'')+n; }
 function icsL(d){ return d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'T'+p2(d.getHours())+p2(d.getMinutes())+'00'; }
 function fold(l){ var o=[],s=l; while(s.length>72){o.push(s.slice(0,72)); s=' '+s.slice(72);} o.push(s); return o.join('\r\n'); }
+/* UTC stamps need no VTIMEZONE block, which iOS silently drops events without */
+function icsUTC(d){
+  function p(n){ return (n<10?'0':'')+n; }
+  return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+
+         p(d.getUTCHours())+p(d.getUTCMinutes())+'00Z';
+}
 function vev(uid,start,title,body,lead){
   var L=['BEGIN:VEVENT','UID:'+uid+'@protocol.local',
    'DTSTAMP:'+new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,''),
-   'DTSTART;TZID=America/Boise:'+icsL(start),'DURATION:PT5M',fold('SUMMARY:'+title)];
+   'DTSTART:'+icsUTC(start),'DURATION:PT5M',fold('SUMMARY:'+title)];
   if(body) L.push(fold('DESCRIPTION:'+body.replace(/\n/g,'\\n')));
   L.push('BEGIN:VALARM','ACTION:DISPLAY',fold('DESCRIPTION:'+title),
    'TRIGGER:'+(lead>0?'-PT'+lead+'M':'PT0M'),'END:VALARM','END:VEVENT');
@@ -1675,27 +1683,33 @@ function vev(uid,start,title,body,lead){
 }
 function buildIcs(){
   var lead=+$('a-lead').value||0, evs=[], q=0, sd=$('c-date').value;
-  PRE().concat(PERI()).forEach(function(e){
-    if(e.off===null) return; var d=eventDate(e.off); if(!d) return;
+  /* your protocol as it actually stands: your added items, your removals,
+     your retimed steps, anchored to the doses you have really taken,
+     and nothing you have already handled or decided to skip */
+  withCustom(PRE(),'pre').concat(withCustom(PERI(),'peri')).forEach(function(e){
+    if(e.off===null||e.off===undefined) return;
+    if(resolved(e.id)) return;
+    var d=eventDate(e.off); if(!d) return;
+    if(d.getTime()<Date.now()-60000) return;
     evs.push(vev('p'+(q++)+'-'+sd,d,e.n,e.d||'',lead));
   });
   var bed=eventDate(peak()+330);
   if(bed) evs.push(vev('p'+(q++)+'-'+sd,bed,'Before bed',
-    BED.map(function(b){return b.n;}).join(' · '),lead));
+    withCustom(BED,'bed').map(function(b){return b.n;}).join(' \u00b7 '),lead));
   if($('a-rec').classList.contains('on')){
     var base=new Date(sd+'T00:00:00');
     function at(k,h,m){ var x=new Date(base); x.setDate(x.getDate()+k); x.setHours(h,m,0,0); return x; }
     evs.push(vev('r1a-'+sd,at(1,8,0),'L-tyrosine 1,000 mg',
       'Full breakfast with carbs, electrolytes, 15-20 min sunlight. Walk only today.',lead));
-    evs.push(vev('r1b-'+sd,at(1,20,0),'5-HTP 100 mg + EGCG 400 mg','T+24h gate clears now. Never unpaired.',lead));
-    for(var d=2;d<=10;d++){
-      evs.push(vev('rm'+d+'-'+sd,at(d,8,0),'Morning stack',
-        'L-tyrosine 1,000 mg · EPA 3 g · CoQ10 · Semax'+(d>=3?' · no ALA from today':''),lead));
-      evs.push(vev('re'+d+'-'+sd,at(d,20,0),'Evening stack',
-        '5-HTP 100 mg + EGCG 400 mg · magnesium 400 mg · NAC 600 mg'+(d===10?' · last 5-HTP day':''),lead));
+    evs.push(vev('r1b-'+sd,at(1,20,0),'5-HTP 100 mg + EGCG 400 mg','The 24-hour gate clears now. Never without EGCG.',lead));
+    for(var dd=2;dd<=10;dd++){
+      evs.push(vev('rm'+dd+'-'+sd,at(dd,8,0),'Morning stack',
+        'L-tyrosine 1,000 mg \u00b7 EPA 3 g \u00b7 CoQ10 \u00b7 Semax'+(dd>=3?' \u00b7 no ALA from today':''),lead));
+      evs.push(vev('re'+dd+'-'+sd,at(dd,20,0),'Evening stack',
+        '5-HTP 100 mg + EGCG 400 mg \u00b7 magnesium 400 mg \u00b7 NAC 600 mg'+(dd===10?' \u00b7 last 5-HTP day':''),lead));
     }
   }
-  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Protocol//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH']
+  return ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Deep Connect//EN','CALSCALE:GREGORIAN','METHOD:PUBLISH']
     .concat(evs).concat(['END:VCALENDAR']).join('\r\n');
 }
 $('a-make').onclick=function(){
@@ -1873,7 +1887,7 @@ $('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-174827';
+var BUILD='20261121-180018';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
