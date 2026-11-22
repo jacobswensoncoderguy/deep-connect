@@ -56,6 +56,14 @@ setTimeout(()=>{
     if(!d.getElementById('whobtns').textContent.includes('Abbie')) throw new Error('no Abbie'); });
   T('switch to partner',()=>{ w.who='__them'; w.protocol(); w.whoBar();
     if(w.nameOf('__them')!=='Abbie') throw new Error('name wrong'); w.who='U1'; });
+  T('tile has a tick box',()=>{ w.customs=[]; w.hidden=[]; w.checks={}; w.protocol();
+    const t=d.getElementById('g-pre').querySelector('.ti .tick');
+    if(!t) throw new Error('no tick box'); });
+  T('tile body opens editor',()=>{ const tile=d.getElementById('g-pre').querySelector('.ti');
+    tile.onclick(); if(!d.getElementById('sh-name')) throw new Error('editor did not open'); });
+  T('editor offers remove',()=>{ if(!d.getElementById('sh-hide')) throw new Error('no remove option'); });
+  T('editor offers time fields',()=>{ if(!d.getElementById('sh-time')||!d.getElementById('sh-date'))
+      throw new Error('no time fields'); });
   T('clear buttons exist',()=>{ w.addClears();
     if(!d.querySelectorAll('.clr').length) throw new Error('none'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();

@@ -138,7 +138,7 @@ section.on{display:block}
 /* ---------- compact grid ---------- */
 .tl{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px}
 .ti{position:relative;border:1px solid var(--line);border-radius:14px;
-  background:var(--card);padding:9px 9px 26px;min-height:92px;cursor:pointer;
+  background:var(--card);padding:9px 42px 24px 9px;min-height:96px;cursor:pointer;
   display:flex;flex-direction:column;gap:3px;overflow:hidden}
 .ti .tw{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--dim);
   text-transform:uppercase;line-height:1.25}
@@ -146,8 +146,15 @@ section.on{display:block}
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .ti .td{font-size:11px;color:var(--sec);line-height:1.2}
 .ti .dot{position:absolute;left:9px;bottom:8px;width:7px;height:7px;border-radius:50%}
-.ti .inf{position:absolute;right:4px;bottom:2px;width:24px;height:24px;border:none;
-  background:none;color:var(--sec);font-size:13px;font-weight:700;padding:0;line-height:1}
+.ti .tick{position:absolute;right:6px;top:6px;width:28px;height:28px;border-radius:9px;
+  border:1.5px solid var(--line);background:var(--bg2);color:var(--teal2);
+  font-size:14px;font-weight:800;padding:0;line-height:1;display:flex;
+  align-items:center;justify-content:center}
+.ti .tick.on{background:linear-gradient(135deg,var(--teal1),var(--teal2));
+  border-color:transparent;color:#05140F}
+.ti .tick.sk{color:var(--dim);border-style:dashed}
+.ti .edithint{position:absolute;right:8px;bottom:7px;font-size:10px;font-weight:700;
+  letter-spacing:.06em;text-transform:uppercase;color:var(--dim);opacity:.8}
 .ti.key{border-color:rgba(124,92,255,.42)}
 .ti.key .tn{font-size:14px;font-weight:750}
 .ti.now{border-color:var(--viol1);box-shadow:0 0 0 3px rgba(124,92,255,.15)}
@@ -159,11 +166,11 @@ section.on{display:block}
 .ti.addtile{border-style:dashed;border-color:var(--line);background:transparent;
   align-items:center;justify-content:center;text-align:center;opacity:.7}
 .ti.addtile .tn{color:var(--sec)}
+.ti.addtile{padding:9px}
 .ti.addtile::after{content:none}
 .ti.skip .tw{color:var(--dim)}
 .ti.skip .tn{text-decoration:line-through;text-decoration-color:var(--dim)}
-.ti.done::after{content:"\2713";position:absolute;right:8px;top:7px;
-  font-size:12px;font-weight:800;color:var(--teal2)}
+
 /* detail sheet */
 #sheet{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--card);
   border-radius:20px 20px 0 0;padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px));
@@ -1165,9 +1172,14 @@ function rows(target,list,timed,count){
       var dot=el('div','dot'); dot.style.background=t[1];
       dot.title=t[0]; ti.appendChild(dot);
     }
-    var inf=el('button','inf','&#9432;'); inf.type='button';
-    inf.setAttribute('aria-label','Details for '+e.n);
-    inf.onclick=function(k){ k.stopPropagation(); openSheet(e,SECOF[target]||'peri',!!timed); };
+    var box=el('button','tick'+(on?' on':'')+(skip?' sk':''),
+      on?'&#10003;':(skip?'&#10005;':''));
+    box.type='button';
+    box.setAttribute('aria-label',(on?'Uncheck ':'Check off ')+e.n);
+    box.onclick=function(k){ k.stopPropagation(); toggle(e.id); };
+    ti.appendChild(box);
+
+    var inf=el('div','edithint','Edit');
     ti.appendChild(inf);
 
     if(timed&&!on&&e.off!==null){
@@ -1177,8 +1189,9 @@ function rows(target,list,timed,count){
     ti.setAttribute('role','button'); ti.setAttribute('tabindex','0');
     ti.setAttribute('aria-pressed',on?'true':'false');
     ti.setAttribute('aria-label',e.n+(on?' \u2014 done':''));
-    ti.onclick=function(){ toggle(e.id); };
-    ti.onkeydown=function(k){ if(k.key==='Enter'||k.key===' '){ k.preventDefault(); toggle(e.id); } };
+    ti.onclick=function(){ openSheet(e,SECOF[target]||'peri',!!timed); };
+    ti.onkeydown=function(k){ if(k.key==='Enter'||k.key===' '){ k.preventDefault();
+      openSheet(e,SECOF[target]||'peri',!!timed); } };
     g.appendChild(ti);
   });
   var add=el('div','ti addtile');
@@ -1807,7 +1820,7 @@ $('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-174136';
+var BUILD='20261121-174351';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
