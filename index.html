@@ -155,6 +155,9 @@ section.on{display:block}
 .ti.done{background:linear-gradient(160deg,rgba(20,184,166,.14),var(--card));
   border-color:rgba(20,184,166,.45)}
 .ti.done .tw{color:var(--teal2)}
+.ti.skip{opacity:.5;border-style:dashed}
+.ti.skip .tw{color:var(--dim)}
+.ti.skip .tn{text-decoration:line-through;text-decoration-color:var(--dim)}
 .ti.done::after{content:"\2713";position:absolute;right:8px;top:7px;
   font-size:12px;font-weight:800;color:var(--teal2)}
 /* detail sheet */
@@ -564,7 +567,8 @@ async function pull(){
   sess =pick(b.data||[],'session_date').map(rowToSetup);
   checks={};
   (c.data||[]).forEach(function(x){
-    var k=(x.subject_id||'__them')+'|'+x.session_date; checks[k]=checks[k]||{}; checks[k][x.item_id]=x.checked_at; });
+    var k=(x.subject_id||'__them')+'|'+x.session_date; checks[k]=checks[k]||{};
+    checks[k][x.item_id]={at:x.checked_at, skipped:!!x.skipped}; });
   loadSetup(); protocol(); if(!dirtyD) loadDaily(); render();
 }
 async function loadPeople(){
@@ -612,7 +616,6 @@ function clock(off){
 /* Every check-off stores the moment you tapped it. Items you have already taken
    become anchors: later items shift by the real drift, and planned times stop
    mattering once an actual exists. Changing a planned time never touches them. */
-function ckAt(id){ var c=checks[key()]||{}; return c[id]||null; }
 function minOfDay(iso){ var d=new Date(iso); return d.getHours()*60+d.getMinutes(); }
 function anchors(){
   var a=[], A=[['dose1',0],['dose2',60],['bump',bumpOff()]];
@@ -896,20 +899,35 @@ function saveSetup(){
 function key(){ return who+'|'+$('c-date').value; }
 function subjMatch(){ return who==='__them'?null:who; }
 function canWrite(){ return !!(SB&&UID&&COUPLE); }
-function ck(id){ return !!(checks[key()]||{})[id]; }
-function toggle(id){
+function st(id){ return (checks[key()]||{})[id]||null; }
+function ck(id){ var r=st(id); return !!(r&&!r.skipped); }
+function isSkipped(id){ var r=st(id); return !!(r&&r.skipped); }
+function ckAt(id){ var r=st(id); return r&&!r.skipped?r.at:null; }
+function resolved(id){ return !!st(id); }
+
+/* one writer for all three states: taken / skipped / cleared */
+function setState(id,state,whenIso){
   var k=key(); checks[k]=checks[k]||{};
-  if(checks[k][id]) delete checks[k][id]; else checks[k][id]=new Date().toISOString();
+  var d=$('c-date').value;
+  if(state==='clear') delete checks[k][id];
+  else checks[k][id]={at: state==='taken' ? (whenIso||new Date().toISOString()) : new Date().toISOString(),
+                      skipped: state==='skipped'};
   if(canWrite()){
-    var d=$('c-date').value;
-    if(checks[k][id]) SB.from('check_offs').upsert(stamp({session_date:d,item_id:id,
-      checked_at:new Date().toISOString()},true),{onConflict:'user_id,subject,session_date,item_id'})
-      .then(function(r){ wrote(r,'that check-off'); });
-    else SB.from('check_offs').delete()
-      .match({subject_id:subjMatch(),entered_by_id:UID,session_date:d,item_id:id}).then(function(){});
+    if(state==='clear'){
+      SB.from('check_offs').delete()
+        .match({subject_id:subjMatch(),entered_by_id:UID,session_date:d,item_id:id})
+        .then(function(r){ wrote(r,'that change'); });
+    }else{
+      SB.from('check_offs').upsert(stamp({session_date:d,item_id:id,
+        checked_at:checks[k][id].at, skipped:(state==='skipped')},true),
+        {onConflict:'user_id,subject,session_date,item_id'})
+        .then(function(r){ wrote(r,'that check-off'); });
+    }
   }
   protocol();
 }
+function toggle(id){ setState(id, resolved(id) ? 'clear' : 'taken'); }
+
 function shortName(n){
   var p=String(n).split(/\s+[\u2014-]\s+/);
   return p.length>1 ? [p[0], p.slice(1).join(' ')] : [p[0], ''];
@@ -919,6 +937,7 @@ function openSheet(e){
   var at=ckAt(e.id), when;
   if(at){ var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
     when='Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm+' '+(h>=12?'PM':'AM'); }
+  else if(isSkipped(e.id)) when='Not taking this';
   else when=(e.off===null?'At jaw onset':clock(e.off));
   var html='<h3>'+e.n+'</h3><div class="why" style="color:var(--sec);font-size:13px">'+when+'</div>';
   if(e.d) html+='<div style="margin-top:10px;font-size:14px;color:var(--sec)">'+e.d+'</div>';
@@ -933,10 +952,23 @@ function openSheet(e){
       (info.note?'<div class="dl">Watch</div><div class="dv">'+info.note+'</div>':'')+
       (info.src?'<a class="sl" href="'+info.src+'">Source</a>':'')+'</div>';
   }
-  html+='<button class="btn '+(ck(e.id)?'r':'t')+'" id="sh-tog">'+
-    (ck(e.id)?'Undo &mdash; not taken':'Mark as taken now')+'</button>';
+  var tv='';
+  if(at){ var dd=new Date(at); tv=('0'+dd.getHours()).slice(-2)+':'+('0'+dd.getMinutes()).slice(-2); }
+  html+='<div class="panel" style="margin-top:14px">'+
+    '<div class="ctl"><label for="sh-time">Time actually taken</label>'+
+    '<input type="time" id="sh-time" value="'+tv+'"></div></div>';
+  html+='<button class="btn t" id="sh-take">'+(ck(e.id)?'Update the time':'Mark as taken')+'</button>';
+  if(!isSkipped(e.id)) html+='<button class="btn g" id="sh-skip">Not taking this</button>';
+  if(resolved(e.id)) html+='<button class="btn r" id="sh-clear">Clear &mdash; back to pending</button>';
   $('sheet').innerHTML=html;
-  $('sh-tog').onclick=function(){ toggle(e.id); closeSheet(); };
+  $('sh-take').onclick=function(){
+    var v=$('sh-time').value, iso=null;
+    if(v){ var p=v.split(':'), base=$('c-date').value||todayStr();
+      var nd=new Date(base+'T00:00:00'); nd.setHours(+p[0],+p[1],0,0); iso=nd.toISOString(); }
+    setState(e.id,'taken',iso); closeSheet();
+  };
+  if($('sh-skip')) $('sh-skip').onclick=function(){ setState(e.id,'skipped'); closeSheet(); };
+  if($('sh-clear')) $('sh-clear').onclick=function(){ setState(e.id,'clear'); closeSheet(); };
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 function closeSheet(){ $('sheet').classList.remove('open'); $('shade').classList.remove('open'); }
@@ -944,13 +976,15 @@ function closeSheet(){ $('sheet').classList.remove('open'); $('shade').classList
 function rows(target,list,timed,count){
   var g=$(target); g.innerHTML=''; var now=Date.now(), done=0;
   list.forEach(function(e){
-    var on=ck(e.id); if(on) done++;
+    var on=ck(e.id); if(on||isSkipped(e.id)) done++;
     var at=ckAt(e.id);
-    var ti=el('div','ti'+(e.key?' key':'')+(on?' done':''));
+    var skip=isSkipped(e.id);
+    var ti=el('div','ti'+(e.key?' key':'')+(on?' done':'')+(skip?' skip':''));
 
     var w;
     if(at){ var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
       w='Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm; }
+    else if(skip) w='Skipped';
     else if(timed) w=(e.off===null?'At jaw onset':clock(e.off));
     else w='';
     if(w) ti.appendChild(el('div','tw',w));
@@ -1598,7 +1632,7 @@ document.addEventListener('input',function(){ addClears(); });
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-170335';
+var BUILD='20261121-171207';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
