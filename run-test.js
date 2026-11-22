@@ -64,6 +64,35 @@ setTimeout(()=>{
   T('editor offers remove',()=>{ if(!d.getElementById('sh-hide')) throw new Error('no remove option'); });
   T('editor offers time fields',()=>{ if(!d.getElementById('sh-time')||!d.getElementById('sh-date'))
       throw new Error('no time fields'); });
+  T('editing the actual time updates the tile',()=>{
+    w.checks={}; w.customs=[]; w.protocol();
+    const dose1=w.PERI().find(x=>x.id==='dose1');
+    w.openSheet(dose1,'peri',true);
+    d.getElementById('sh-date').value='2026-11-21';
+    d.getElementById('sh-time').value='17:28';
+    d.getElementById('sh-save').onclick();
+    const t=[...d.getElementById('g-peri').querySelectorAll('.ti')].find(x=>x.textContent.includes('Dose 1'));
+    if(!t.textContent.includes('5:28')) throw new Error('tile shows '+t.textContent.trim()); });
+  T('planned label is the planned time',()=>{
+    const t=[...d.getElementById('g-peri').querySelectorAll('.ti')].find(x=>x.textContent.includes('Dose 1'));
+    if(!t.textContent.includes('planned 6:30 PM')) throw new Error('got '+t.textContent.trim()); });
+  T('scheduled field shows planned not actual',()=>{
+    const dose1=w.PERI().find(x=>x.id==='dose1');
+    w.openSheet(dose1,'peri',true);
+    if(d.getElementById('sh-plan').value!=='18:30')
+      throw new Error('got '+d.getElementById('sh-plan').value); });
+  T('computed items cannot freeze their text',()=>{
+    w.customs=[{id:'Z',section:'peri',subject_id:'U1',builtin_id:'dose1',
+      name:'STALE TEXT',detail:'stale',off_min:null}];
+    w.protocol();
+    if(d.getElementById('g-peri').textContent.includes('STALE TEXT'))
+      throw new Error('override froze a computed item'); 
+    w.customs=[]; w.protocol(); });
+  T('time<->offset has no drift',()=>{
+    w.checks={'U1|2026-11-21':{dose1:{at:new Date('2026-11-21T19:30:00').toISOString(),skipped:false}}};
+    const off=w.timeToOff('19:00');
+    if(off!==30) throw new Error('expected 30, got '+off);
+    w.checks={}; });
   T('clear buttons exist',()=>{ w.addClears();
     if(!d.querySelectorAll('.clr').length) throw new Error('none'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();

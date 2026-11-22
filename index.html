@@ -153,6 +153,7 @@ section.on{display:block}
 .ti .tick.on{background:linear-gradient(135deg,var(--teal1),var(--teal2));
   border-color:transparent;color:#05140F}
 .ti .tick.sk{color:var(--dim);border-style:dashed}
+.ti .tp{font-size:10.5px;color:var(--dim);line-height:1.2}
 .ti .edithint{position:absolute;right:8px;bottom:7px;font-size:10px;font-weight:700;
   letter-spacing:.06em;text-transform:uppercase;color:var(--dim);opacity:.8}
 .ti.key{border-color:rgba(124,92,255,.42)}
@@ -494,6 +495,7 @@ const SB_KEY='sb_publishable_OqfzVMWOZjTjq-C0mdB8zQ_9e_cv-QY';
 var SB=null, UID=null, ME=null, COUPLE=null, PEOPLE=[];
 var who=null, proxy=false, daily=[], sess=[], checks={}, blind=true, dirtyD=false;
 var customs=[], hidden=[];
+var pendingChecks={};   /* item -> local state awaiting confirmation */
 function meRow(){ return PEOPLE.filter(function(p){return p.id===UID;})[0]||null; }
 function personOf(id){ return PEOPLE.filter(function(p){return p.id===id;})[0]||null; }
 function nameOf(id){ if(id==='__them') return theirName();
@@ -585,6 +587,13 @@ async function pull(){
   (c.data||[]).forEach(function(x){
     var k=(x.subject_id||'__them')+'|'+x.session_date; checks[k]=checks[k]||{};
     checks[k][x.item_id]={at:x.checked_at, skipped:!!x.skipped}; });
+  /* anything edited here and not yet confirmed by the server stays as the user left it */
+  Object.keys(pendingChecks).forEach(function(pk){
+    var p=pendingChecks[pk], k=p.k;
+    checks[k]=checks[k]||{};
+    if(p.state==='clear') delete checks[k][p.id];
+    else checks[k][p.id]={at:p.at, skipped:p.skipped};
+  });
   loadSetup(); protocol(); if(!dirtyD) loadDaily(); render();
 }
 async function loadPeople(){
@@ -622,6 +631,13 @@ function bumpOff(){
   var a=mins($('c-t0').value), b=mins($('c-bt').value);
   if(a===null||b===null) return 180;
   var d=b-a; if(d<0) d+=1440; return d;
+}
+/* planned clock, ignoring actuals */
+function plannedClock(off){
+  var t0=mins($('c-t0').value);
+  if(t0===null||off===null||off===undefined) return '—';
+  var m=(((t0+off)%1440)+1440)%1440, h=Math.floor(m/60), mm=m%60;
+  return ((h%12)||12)+':'+(mm<10?'0':'')+mm+' '+(h>=12?'PM':'AM');
 }
 function clock(off){
   var am=absMin(off); if(am===null) return '—';
@@ -925,20 +941,30 @@ function resolved(id){ return !!ckState(id); }
 function setState(id,state,whenIso){
   var k=key(); checks[k]=checks[k]||{};
   var d=$('c-date').value;
+  var at = state==='taken' ? (whenIso||new Date().toISOString()) : new Date().toISOString();
   if(state==='clear') delete checks[k][id];
-  else checks[k][id]={at: state==='taken' ? (whenIso||new Date().toISOString()) : new Date().toISOString(),
-                      skipped: state==='skipped'};
+  else checks[k][id]={at:at, skipped:(state==='skipped')};
+
+  var pk=k+'|'+id;
+  pendingChecks[pk]={k:k,id:id,state:state,at:at,skipped:(state==='skipped')};
+
   if(canWrite()){
+    var done=function(r,label){
+      if(wrote(r,label)) delete pendingChecks[pk];
+      protocol();
+    };
     if(state==='clear'){
       SB.from('check_offs').delete()
         .match({subject_id:subjMatch(),entered_by_id:UID,session_date:d,item_id:id})
-        .then(function(r){ wrote(r,'that change'); });
+        .then(function(r){ done(r,'that change'); });
     }else{
       SB.from('check_offs').upsert(stamp({session_date:d,item_id:id,
-        checked_at:checks[k][id].at, skipped:(state==='skipped')},true),
+        checked_at:at, skipped:(state==='skipped')},true),
         {onConflict:'user_id,subject,session_date,item_id'})
-        .then(function(r){ wrote(r,'that check-off'); });
+        .then(function(r){ done(r,'that check-off'); });
     }
+  } else {
+    delete pendingChecks[pk];
   }
   protocol();
 }
@@ -957,11 +983,16 @@ function overrideFor(id){
   return customs.filter(function(c){ return c.builtin_id===id && mineSubj(c); })[0]||null;
 }
 /* a built-in you have renamed or retimed shows your version */
+/* dose lines and the antioxidant rounds are rebuilt from your settings every
+   render, so their text is never frozen by an override — only their timing. */
+var COMPUTED=/^(dose1|dose2|bump|ox\d|thc|oxy1|oxy2|stop)$/;
 function applyOverride(e){
   var o=overrideFor(e.id); if(!o) return e;
+  var calc=COMPUTED.test(e.id);
   return {id:e.id, key:e.key,
     off:(o.off_min===null||o.off_min===undefined)?e.off:o.off_min,
-    n:o.name||e.n, d:(o.detail!==null&&o.detail!==undefined&&o.detail!=='')?o.detail:e.d,
+    n: calc ? e.n : (o.name||e.n),
+    d: calc ? e.d : ((o.detail!==null&&o.detail!==undefined&&o.detail!=='')?o.detail:e.d),
     override:o.id, edited:true};
 }
 function withCustom(list,sec){
@@ -973,15 +1004,21 @@ function sortByOff(a){
   return a.sort(function(x,y){
     return (x.off===null||x.off===undefined?1e9:x.off)-(y.off===null||y.off===undefined?1e9:y.off); });
 }
+var savingOverride=false;
 async function saveOverride(id,sec,name,detail,offMin){
   if(!canWrite()) return;
-  var ex=overrideFor(id), body={
-    couple_id:COUPLE, subject_id:subjMatch(), entered_by_id:UID,
-    section:sec, builtin_id:id, name:name||null, detail:detail||null,
-    off_min:(offMin===''||offMin===null||offMin===undefined?null:offMin)};
-  var r = ex ? await SB.from('custom_items').update(body).match({id:ex.id,entered_by_id:UID})
-             : await SB.from('custom_items').insert(body);
-  if(wrote(r,'that change')) await pull();
+  if(savingOverride) return; savingOverride=true;
+  try{
+    var ex=overrideFor(id), body={
+      couple_id:COUPLE, subject_id:subjMatch(), entered_by_id:UID,
+      section:sec, builtin_id:id,
+      name: COMPUTED.test(id) ? null : (name||null),
+      detail: COMPUTED.test(id) ? null : (detail||null),
+      off_min:(offMin===''||offMin===null||offMin===undefined?null:offMin)};
+    var r = ex ? await SB.from('custom_items').update(body).match({id:ex.id,entered_by_id:UID})
+               : await SB.from('custom_items').insert(body);
+    if(wrote(r,'that change')) await pull();
+  } finally { savingOverride=false; }
 }
 async function updateCustom(cid,name,detail,offMin){
   if(!canWrite()) return;
@@ -1028,17 +1065,20 @@ function shortName(n){
   var p=String(n).split(/\s+[\u2014-]\s+/);
   return p.length>1 ? [p[0], p.slice(1).join(' ')] : [p[0], ''];
 }
+/* The scheduled time is always measured from the planned first dose.
+   It must never use drift() — drift is derived from the item being edited,
+   which makes the conversion circular and produces nonsense offsets. */
 function offToTime(off){
-  var am=absMin(off); if(am===null) return '';
-  var m=((am%1440)+1440)%1440;
+  var t0=mins($('c-t0').value);
+  if(t0===null||off===null||off===undefined) return '';
+  var m=(((t0+off)%1440)+1440)%1440;
   return ('0'+Math.floor(m/60)).slice(-2)+':'+('0'+(m%60)).slice(-2);
 }
 function timeToOff(v){
   var t0=mins($('c-t0').value); if(t0===null||!v) return '';
-  var p=v.split(':'), m=(+p[0])*60+(+p[1]);
-  var off=m-t0-drift();
-  if(off<-720) off+=1440;        /* entered a time after midnight */
-  if(off>1020) off-=1440;
+  var p=v.split(':'), off=((+p[0])*60+(+p[1]))-t0;
+  if(off<-720) off+=1440;
+  if(off>720)  off-=1440;
   return off;
 }
 function openSheet(e,sec,timed){
@@ -1052,8 +1092,13 @@ function openSheet(e,sec,timed){
      (e.edited?' &middot; edited by you':'')+'</div>';
 
   /* --- what it is --- */
-  h+='<div class="panel" style="margin-top:14px">'+
-     '<div class="ctl"><label for="sh-name">Name</label>'+
+  var calc=COMPUTED.test(e.id);
+  h+='<div class="panel" style="margin-top:14px">';
+  if(calc) h+='<div class="fl">This one is built from your dose settings, so its '+
+       'name and note update themselves. You can still change its time.</div>'+
+       '<input type="hidden" id="sh-name" value="'+esc(e.n).replace(/"/g,'&quot;')+'">'+
+       '<input type="hidden" id="sh-note" value="'+esc(e.d||'').replace(/"/g,'&quot;')+'">';
+  else h+='<div class="ctl"><label for="sh-name">Name</label>'+
        '<input id="sh-name" maxlength="80" value="'+esc(e.n).replace(/"/g,'&quot;')+'"></div>'+
      '<div class="fl">Note</div><div class="wd">'+
        '<textarea id="sh-note" rows="2">'+esc(e.d||'')+'</textarea></div>';
@@ -1105,11 +1150,14 @@ function openSheet(e,sec,timed){
   $('sh-save').onclick=async function(){
     var nm=$('sh-name').value.trim(), nt=$('sh-note').value.trim();
     var off= timed && $('sh-plan') ? timeToOff($('sh-plan').value) : '';
-    if(e.custom) await updateCustom(e.custom, nm||e.n, nt, off);
-    else if(nm!==e.n || nt!==(e.d||'') || (timed && off!==''&&off!==e.off))
-      await saveOverride(e.id, sec, nm, nt, off);
+    /* write the actual time first — it is what the user came here to change */
     var iso=actualIso();
     if(iso) setState(e.id,'taken',iso);
+
+    var timeChanged = timed && $('sh-plan') && off!=='' && off!==e.off;
+    var textChanged = !COMPUTED.test(e.id) && (nm!==e.n || nt!==(e.d||''));
+    if(e.custom){ if(textChanged||timeChanged) await updateCustom(e.custom, nm||e.n, nt, off); }
+    else if(textChanged||timeChanged) await saveOverride(e.id, sec, nm, nt, off);
     closeSheet();
   };
   if($('sh-take'))  $('sh-take').onclick =function(){ setState(e.id,'taken',actualIso()); closeSheet(); };
@@ -1154,17 +1202,22 @@ function rows(target,list,timed,count){
     var skip=isSkipped(e.id);
     var ti=el('div','ti'+(e.key?' key':'')+(on?' done':'')+(skip?' skip':''));
 
-    var w;
+    var w, planned = timed ? (e.off===null?'At jaw onset':plannedClock(e.off)) : '';
     if(at){ var d=new Date(at), h=d.getHours(), mm=d.getMinutes();
       w='Taken '+((h%12)||12)+':'+(mm<10?'0':'')+mm; }
     else if(skip) w='Skipped';
-    else if(timed) w=(e.off===null?'At jaw onset':clock(e.off));
-    else w='';
+    else w=planned;
     if(w) ti.appendChild(el('div','tw',w));
 
     var parts=shortName(e.n);
     ti.appendChild(el('div','tn',parts[0]));
     if(parts[1]) ti.appendChild(el('div','td',parts[1]));
+    /* when you took it at a different time than planned, show both */
+    if(at&&planned){
+      var hhmm=w.replace('Taken ','');
+      var plShort=planned.replace(/ (AM|PM)$/,'');
+      if(hhmm!==plShort) ti.appendChild(el('div','tp','planned '+planned));
+    }
 
     var info=EV[e.id]||(/^ox\d$/.test(e.id)?EV.ox0:null);
     if(info){
@@ -1820,7 +1873,7 @@ $('restore').onclick=function(){ restoreAll(); };
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261121-174351';
+var BUILD='20261121-174827';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
