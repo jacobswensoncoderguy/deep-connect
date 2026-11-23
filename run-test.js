@@ -197,6 +197,24 @@ setTimeout(()=>{
       throw new Error('hourly rounds removed'); });
   T('pre-load has its own evidence',()=>{
     const e=w.EV['l-am']; if(!e||!/Aguirre/.test(e.fig)) throw new Error('missing card'); });
+  T('dose per kg shows',()=>{
+    w.customs=[]; w.hidden=[]; w.checks={}; w.RECDATE=null;
+    d.getElementById('c-date').value='2026-11-28';
+    d.getElementById('c-t0').value='18:30';
+    d.getElementById('c-wt').value='120';
+    d.getElementById('c-bump').classList.remove('on');
+    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='50';
+    d.getElementById('c-bd').value='0';
+    w.protocol();
+    const t=d.getElementById('dosesum').textContent;
+    if(!t.includes('2.76')) throw new Error('got '+t.slice(0,120));
+    if(!t.includes('high')) throw new Error('no band'); });
+  T('dose band flags very high',()=>{
+    d.getElementById('c-d2').value='100'; w.protocol();
+    const t=d.getElementById('dosesum').textContent;
+    if(!t.includes('3.67')) throw new Error('got '+t.slice(0,120));
+    if(!t.includes('very high')) throw new Error('band wrong: '+t.slice(0,120));
+    d.getElementById('c-wt').value=''; });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 

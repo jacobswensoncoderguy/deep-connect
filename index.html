@@ -371,6 +371,8 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="lab"><i></i><span>Setup</span></div>
   <div class="panel">
     <div class="ctl"><label for="c-date">Session date</label><input type="date" id="c-date"></div>
+    <div class="ctl"><label for="c-wt">Body weight, lb</label>
+      <input type="number" id="c-wt" inputmode="numeric" placeholder="lb"></div>
     <div class="ctl"><label for="c-t0">Time of first dose</label><input type="time" id="c-t0" value="17:00"></div>
     <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
     <div class="ctl"><label for="c-v1">How you’re taking it</label><select id="c-v1">
@@ -918,7 +920,7 @@ var TIER={M:['Measured in humans','#2BD4A0'],P:['Mechanism only','#56A8F5'],
 
 
 /* ---------- session setup: per person, per date ---------- */
-var SF=['c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
+var SF=['c-wt','c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
 var setupT=null;
 function readSetup(){
   var o={date:$('c-date').value};
@@ -971,6 +973,8 @@ function draftLoad(){
 function draftClear(){ try{ localStorage.removeItem(draftKey()); }catch(e){} }
 
 function loadSetup(){
+  var pw=personOf(who);
+  if(pw&&pw.weight_lb&&!$('c-wt').value) $('c-wt').value=pw.weight_lb;
   var r=find(sess,$('c-date').value);
   if(r) { applySetup(r); draftClear(); }
   else if(!draftLoad()) applySetup(null);
@@ -1347,7 +1351,7 @@ function protocol(){
   var bd=$('c-bump').classList.contains('on')?(+$('c-bd').value||0):0, pk=peak();
   var o1=onset(0,$('c-v1').value), o2=onset(60,$('c-v2').value);
   var first=Math.min(o1,o2), slowest=Math.max(o1,o2);
-  $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b> — '+d1+' + '+d2+(bd?' + '+bd:'')+
+  $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b>'+doseLine(d1+d2+bd)+' — '+d1+' + '+d2+(bd?' + '+bd:'')+
     '. First effects around <b>'+clock(first)+'</b>, the slower one kicks in <b>'+clock(slowest)+
     '</b>, strongest around <b>'+clock(pk)+'</b>. Last item of the night is at <b>'+clock(pk+300)+'</b>.'+
     ($('c-reta').classList.contains('on')?
@@ -1392,6 +1396,7 @@ SF.forEach(function(i){
   $(i).addEventListener('change',function(){draftSave(); protocol(); saveSetup();});
 });
 
+$('c-wt').addEventListener('change',saveWeight);
 $('savesession').onclick=function(){
   var b=this;
   if(!canWrite()){ $('setupstate').textContent='Not signed in yet.'; return; }
@@ -1803,6 +1808,30 @@ function openFinish(){
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 
+
+
+/* ---------- dose per pound ----------
+   The only defensible way to compare two people's doses. */
+function myWeight(){
+  var v=+$('c-wt').value;
+  if(v>0) return v;
+  var p=personOf(who); return (p&&+p.weight_lb)||0;
+}
+function saveWeight(){
+  var v=+$('c-wt').value; if(!(v>0)||!canWrite()||who==='__them') return;
+  SB.from('profiles').update({weight_lb:v}).match({id:who})
+    .then(function(r){ if(wrote(r,'the weight')) { var p=personOf(who); if(p) p.weight_lb=v; } });
+}
+function mgPerKg(total){
+  var lb=myWeight(); if(!(lb>0)||!(total>0)) return null;
+  return total/(lb/2.2046);
+}
+function doseLine(total){
+  var r=mgPerKg(total); if(r===null) return '';
+  var band = r<2.0 ? 'conservative' : r<2.6 ? 'moderate' : r<3.2 ? 'high' : 'very high';
+  var col  = r<2.6 ? 'var(--teal2)' : r<3.2 ? 'var(--amb2)' : '#F4556B';
+  return ' &middot; <b style="color:'+col+'">'+r.toFixed(2)+' mg/kg</b> ('+band+')';
+}
 
 /* ---------- the two days before ---------- */
 function shiftDate(d,n){
@@ -2271,7 +2300,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261122-180951';
+var BUILD='20261122-182350';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
