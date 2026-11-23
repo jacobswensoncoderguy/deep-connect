@@ -373,6 +373,8 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl"><label for="c-date">Session date</label><input type="date" id="c-date"></div>
     <div class="ctl"><label for="c-wt">Body weight, lb</label>
       <input type="number" id="c-wt" inputmode="numeric" placeholder="lb"></div>
+    <div class="ctl"><label for="c-wt">Body weight, lb</label>
+      <input type="number" id="c-wt" inputmode="decimal" step="1" placeholder="lb"></div>
     <div class="ctl"><label for="c-t0">Time of first dose</label><input type="time" id="c-t0" value="17:00"></div>
     <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
     <div class="ctl"><label for="c-v1">How you’re taking it</label><select id="c-v1">
@@ -601,7 +603,8 @@ function setupToRow(o){ return stamp({
   dose1_mg:+o['c-d1']||null, dose1_form:o['c-v1'], dose2_mg:+o['c-d2']||null, dose2_form:o['c-v2'],
   bump:!!o.bump, bump_time:o.bump?(o['c-bt']||null):null, bump_mg:o.bump?(+o['c-bd']||null):null,
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
-  felt_at:o.feltAt||null, finished_at:o.finishedAt||null, mg_per_kg:o.mgkg||null,
+  felt_at:o.feltAt||null, weight_lb:o.wt||null,
+  mg_per_kg:o.mgkg||null, finished_at:o.finishedAt||null,
   peak_score:o.peakScore||null, body_load:o.bodyLoad||null,
   plateau_hrs:o.plateau||null, notes:o.notes||null,
   days_since_last:o.gap }); }
@@ -611,8 +614,8 @@ function rowToSetup(x){ return {
   'c-t0':x.start_time?String(x.start_time).slice(0,5):'', 'c-d1':x.dose1_mg, 'c-v1':x.dose1_form,
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
   'c-bt':x.bump_time?String(x.bump_time).slice(0,5):'', 'c-bd':x.bump_mg,
-  'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at,
-  finishedAt:x.finished_at, mgkg:x.mg_per_kg, peakScore:x.peak_score, bodyLoad:x.body_load,
+  'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at, wt:x.weight_lb, mgkg:x.mg_per_kg,
+  finishedAt:x.finished_at, peakScore:x.peak_score, bodyLoad:x.body_load,
   plateau:x.plateau_hrs, notes:x.notes }; }
 async function pull(){
   if(!SB||!UID) return;
@@ -927,6 +930,7 @@ var SF=['c-wt','c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
 var setupT=null;
 function readSetup(){
   var o={date:$('c-date').value};
+  o.wt=weightLb(); o.mgkg=mgPerKg();
   o.mgkg=mgPerKg();
   var prevF=find(sess,o.date);
   if(prevF){ o.feltAt=prevF.feltAt; o.finishedAt=prevF.finishedAt;
@@ -941,6 +945,8 @@ function readSetup(){
   return o;
 }
 function applySetup(r){
+  var pw=personOf(who);
+  if(pw&&pw.weight_lb&&!$('c-wt').value) $('c-wt').value=pw.weight_lb;
   if(!r) return;
   SF.forEach(function(i){ if(r[i]!==undefined&&r[i]!==null&&r[i]!=='') $(i).value=r[i]; });
   [['c-bump',r.bump],['c-reta',r.reta]].forEach(function(p){
@@ -1355,7 +1361,7 @@ function protocol(){
   var bd=$('c-bump').classList.contains('on')?(+$('c-bd').value||0):0, pk=peak();
   var o1=onset(0,$('c-v1').value), o2=onset(60,$('c-v2').value);
   var first=Math.min(o1,o2), slowest=Math.max(o1,o2);
-  $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b>'+doseLine(d1+d2+bd)+' — '+d1+' + '+d2+(bd?' + '+bd:'')+
+  $('dosesum').innerHTML='<b>'+(d1+d2+bd)+' mg total</b>'+doseLine()+' — '+d1+' + '+d2+(bd?' + '+bd:'')+
     '. First effects around <b>'+clock(first)+'</b>, the slower one kicks in <b>'+clock(slowest)+
     '</b>, strongest around <b>'+clock(pk)+'</b>. Last item of the night is at <b>'+clock(pk+300)+'</b>.'+
     ($('c-reta').classList.contains('on')?
@@ -1818,35 +1824,14 @@ function openFinish(){
 
 /* ---------- dose per pound ----------
    The only defensible way to compare two people's doses. */
-function myWeight(){
-  var v=+$('c-wt').value;
-  if(v>0) return v;
-  var p=personOf(who); return (p&&+p.weight_lb)||0;
-}
-function saveWeight(){
-  var v=+$('c-wt').value; if(!(v>0)||!canWrite()||who==='__them') return;
-  SB.from('profiles').update({weight_lb:v}).match({id:who})
-    .then(function(r){ if(wrote(r,'the weight')) { var p=personOf(who); if(p) p.weight_lb=v; } });
-}
-function mgPerKg(total){
-  var lb=myWeight(); if(!(lb>0)||!(total>0)) return null;
-  return total/(lb/2.2046);
-}
-function doseLine(total){
-  var r=mgPerKg(total); if(r===null) return '';
-  var band = r<2.0 ? 'conservative' : r<2.6 ? 'moderate' : r<3.2 ? 'high' : 'very high';
-  var col  = r<2.6 ? 'var(--teal2)' : r<3.2 ? 'var(--amb2)' : '#F4556B';
-  return ' &middot; <b style="color:'+col+'">'+r.toFixed(2)+' mg/kg</b> ('+band+')';
-}
-
-
-/* ---------- dose intensity ----------
-   Women show more intense physiological and negative effects than men at the
-   SAME weight-adjusted dose (Pardo-Lozano 2012, Liechti 2001), so matching a
-   partner's mg/kg is not the target — landing under it is. */
+/* ---------- dose per body weight ----------
+   The number that actually governs how a dose lands. Two people on the same
+   milligrams are not on the same dose. */
 function weightLb(){
-  var v=+$('c-wt').value; if(v>0) return v;
-  var p=personOf(who); return (p&&p.weight_lb)?+p.weight_lb:0;
+  var v=parseFloat($('c-wt').value);
+  if(v>0) return v;
+  var p=personOf(who);
+  return (p&&p.weight_lb>0)?+p.weight_lb:null;
 }
 function totalMg(){
   var d1=+$('c-d1').value||0, d2=+$('c-d2').value||0;
@@ -1854,42 +1839,49 @@ function totalMg(){
   return d1+d2+bd;
 }
 function mgPerKg(){
-  var lb=weightLb(); if(!lb) return null;
-  return totalMg()/(lb/2.2046);
+  var lb=weightLb(), t=totalMg();
+  if(!(lb>0)||!(t>0)) return null;
+  return t/(lb*0.45359237);
 }
 function doseBand(v){
-  if(v===null) return ['','var(--sec)'];
-  if(v<1.6)  return ['light','var(--teal2)'];
-  if(v<2.2)  return ['moderate','var(--teal2)'];
-  if(v<2.8)  return ['firm','var(--amb)'];
-  if(v<3.4)  return ['high','var(--amb)'];
+  if(v<2.0) return ['conservative','var(--teal2)'];
+  if(v<2.6) return ['moderate','var(--teal2)'];
+  if(v<3.2) return ['firm-to-high','var(--amb2)'];
   return ['very high','#F4556B'];
 }
+function doseLine(){
+  var r=mgPerKg(); if(r===null) return '';
+  var b=doseBand(r);
+  return ' &middot; <b style="color:'+b[1]+'">'+r.toFixed(2)+' mg/kg</b> ('+b[0]+')';
+}
+function saveWeight(){
+  var v=parseFloat($('c-wt').value);
+  if(!(v>0)||!canWrite()||who==='__them') return;
+  SB.from('profiles').update({weight_lb:v}).match({id:who})
+    .then(function(r){ if(!r.error){ var p=personOf(who); if(p) p.weight_lb=v; } });
+}
 function paintDose(){
-  var v=mgPerKg(), lb=weightLb(), el2=$('dosekg'); if(!el2) return;
-  if(!lb){ el2.innerHTML='<b>Add a body weight</b> to see mg/kg. '+
-    'Total milligrams on their own say nothing about intensity.'; return; }
+  var box=$('dosekg'); if(!box) return;
+  var lb=weightLb(), v=mgPerKg();
+  if(!lb){ box.innerHTML='<b>Add a body weight</b> to see mg/kg. '+
+    'Total milligrams on their own say nothing about how hard a dose lands.'; return; }
+  if(v===null){ box.innerHTML=''; return; }
   var b=doseBand(v);
   var html='<b style="color:'+b[1]+'">'+v.toFixed(2)+' mg/kg &middot; '+b[0]+'</b> &mdash; '+
     totalMg()+' mg at '+Math.round(lb)+' lb.';
-  /* compare against the other person's most recent session */
+  /* compare against the other person\'s most recent session */
   var tid = who===UID ? theirId() : UID;
-  var others = sess.filter(function(r){
-      return r.person===(tid||'__them') && r.mgkg; })
-    .sort(function(a,b2){ return a.date.localeCompare(b2.date); });
+  var others=sess.filter(function(r){ return r.person===(tid||'__them') && r.mgkg>0; })
+    .sort(function(a,c){ return a.date.localeCompare(c.date); });
   if(others.length){
     var last=others[others.length-1];
     var diff=Math.round(((v/last.mgkg)-1)*100);
     if(Math.abs(diff)>=5) html+=' That is <b>'+Math.abs(diff)+'% '+(diff>0?'higher':'lower')+
-      '</b> per kilogram than '+esc(nameOf(last.person))+'&rsquo;s last session ('+
+      '</b> per kilogram than '+esc(nameOf(last.person)||'their')+'&rsquo;s last session ('+
       last.mgkg.toFixed(2)+').';
   }
-  if(v>=2.8) html+='<br><br><b style="color:#F4556B">This is a firm-to-high dose per kilogram.</b> '+
-    'If the next day has been rough, this number is the first thing to move \u2014 before any supplement.';
-  el2.innerHTML=html;
+  box.innerHTML=html;
 }
-
-/* ---------- the two days before ---------- */
 function shiftDate(d,n){
   var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n);
   return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2);
@@ -2355,6 +2347,7 @@ $('felt-time').addEventListener('change',function(){
 initPush();
 
 
+$('c-wt').addEventListener('change',function(){ saveWeight(); protocol(); });
 $('finishsession').onclick=openFinish;
 if(!$('rec-date').value) $('rec-date').value=todayStr();
 $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol(); });
@@ -2362,7 +2355,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261122-182733';
+var BUILD='20261122-183614';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })

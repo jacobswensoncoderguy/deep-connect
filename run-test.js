@@ -197,46 +197,41 @@ setTimeout(()=>{
       throw new Error('hourly rounds removed'); });
   T('pre-load has its own evidence',()=>{
     const e=w.EV['l-am']; if(!e||!/Aguirre/.test(e.fig)) throw new Error('missing card'); });
-  T('dose per kg shows',()=>{
-    w.customs=[]; w.hidden=[]; w.checks={}; w.RECDATE=null;
-    d.getElementById('c-date').value='2026-11-28';
-    d.getElementById('c-t0').value='18:30';
-    d.getElementById('c-wt').value='120';
-    d.getElementById('c-bump').classList.remove('on');
-    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='50';
-    d.getElementById('c-bd').value='0';
-    w.protocol();
-    const t=d.getElementById('dosesum').textContent;
-    if(!t.includes('2.76')) throw new Error('got '+t.slice(0,120));
-    if(!t.includes('high')) throw new Error('no band'); });
-  T('dose band flags very high',()=>{
-    d.getElementById('c-d2').value='100'; w.protocol();
-    const t=d.getElementById('dosesum').textContent;
-    if(!t.includes('3.67')) throw new Error('got '+t.slice(0,120));
-    if(!t.includes('very high')) throw new Error('band wrong: '+t.slice(0,120));
-    d.getElementById('c-wt').value=''; });
-  T('mg per kg computes',()=>{
+  T('mg per kg shows in the summary',()=>{
     w.customs=[]; w.hidden=[]; w.RECDATE=null; w.checks={}; w.sess=[];
     d.getElementById('c-date').value='2026-11-28';
     d.getElementById('c-t0').value='18:30';
-    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='100';
+    d.getElementById('c-bump').classList.remove('on');
     d.getElementById('c-wt').value='120';
+    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='100';
     w.protocol();
-    const v=w.mgPerKg();
-    if(Math.abs(v-3.674)>0.02) throw new Error('got '+v);
-    if(!d.getElementById('dosekg').textContent.includes('3.67')) throw new Error('not shown'); });
-  T('high dose is flagged',()=>{
-    if(!d.getElementById('dosekg').textContent.includes('firm-to-high'))
-      throw new Error('no warning at 3.67 mg/kg'); });
-  T('moderate dose is not flagged',()=>{
-    d.getElementById('c-d2').value='25'; w.protocol();
+    if(Math.abs(w.mgPerKg()-3.674)>0.02) throw new Error('got '+w.mgPerKg());
+    if(!d.getElementById('dosesum').textContent.includes('3.67')) throw new Error('not in summary');
+    if(!d.getElementById('dosekg').textContent.includes('very high')) throw new Error('band wrong'); });
+  T('matched dose reads moderate',()=>{
+    d.getElementById('c-wt').value='200';
+    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='125';
+    w.protocol();
+    if(Math.abs(w.mgPerKg()-2.48)>0.02) throw new Error('got '+w.mgPerKg());
+    if(!d.getElementById('dosekg').textContent.includes('moderate')) throw new Error('band wrong'); });
+  T('compares against the other person',()=>{
+    w.PEOPLE=[{id:'U1',display_name:'Jake',couple_id:'C'},
+              {id:'U2',display_name:'Abbie',couple_id:'C'}];
+    w.ME=w.PEOPLE[0];
+    w.sess=[{date:'2026-11-21',person:'U2',mgkg:3.67}];
+    w.protocol();
     const t=d.getElementById('dosekg').textContent;
-    if(t.includes('firm-to-high')) throw new Error('false alarm at '+w.mgPerKg().toFixed(2)); });
-  T('history shows mg/kg',()=>{
+    if(!t.includes('lower')||!t.includes('Abbie')) throw new Error('got '+t); });
+  T('no weight prompts instead of guessing',()=>{
+    d.getElementById('c-wt').value=''; w.PEOPLE[0].weight_lb=null; w.protocol();
+    if(!d.getElementById('dosekg').textContent.includes('Add a body weight'))
+      throw new Error('got '+d.getElementById('dosekg').textContent); });
+  T('history carries mg/kg',()=>{
     w.sess=[{date:'2026-11-21',person:'U1','c-t0':'18:30','c-d1':100,'c-v1':'Liquid softgel',
-      'c-d2':100,'c-v2':'Gummies',bump:false,gap:7,mgkg:3.68}];
+      'c-d2':100,'c-v2':'Gummies',bump:false,gap:7,mgkg:3.674,wt:120}];
     w.render();
-    if(!d.getElementById('t-sess').textContent.includes('3.68')) throw new Error('missing'); });
+    const t=d.getElementById('t-sess').textContent;
+    if(!t.includes('3.67')) throw new Error('got '+t.slice(0,200)); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 
