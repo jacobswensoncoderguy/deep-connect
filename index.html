@@ -372,8 +372,6 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="panel">
     <div class="ctl"><label for="c-date">Session date</label><input type="date" id="c-date"></div>
     <div class="ctl"><label for="c-wt">Body weight, lb</label>
-      <input type="number" id="c-wt" inputmode="numeric" placeholder="lb"></div>
-    <div class="ctl"><label for="c-wt">Body weight, lb</label>
       <input type="number" id="c-wt" inputmode="decimal" step="1" placeholder="lb"></div>
     <div class="ctl"><label for="c-t0">Time of first dose</label><input type="time" id="c-t0" value="17:00"></div>
     <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
@@ -387,8 +385,6 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl" id="c-br2"><label for="c-bd">Bump amount</label><input type="number" id="c-bd" value="50" inputmode="numeric"></div>
     <div class="ctl" id="c-br3"><label for="c-vehicle">How you’re taking it</label><select id="c-vehicle">
       <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
-    <div class="ctl"><label for="c-wt">Body weight (lb)</label>
-      <input type="number" id="c-wt" inputmode="decimal" placeholder="lb"></div>
     <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
   <div class="hint" id="dosekg"></div>
@@ -500,7 +496,7 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="scroll" style="margin-top:9px"><table id="t-onset"></table></div>
 
   <div class="lab" data-p="test"><i></i><span>Past sessions</span></div>
-  <div class="hint">Tap one to load it into the Session tab.</div>
+  <div class="hint">Tap any session to edit everything about it &mdash; doses, times, how it felt.</div>
   <div class="scroll" style="margin-top:9px"><table id="t-sess"></table></div>
 
   <div id="codewrap" style="display:none">
@@ -1706,16 +1702,7 @@ function sessTable(){
   }).join('');
   Array.prototype.forEach.call(t.querySelectorAll('tr[data-s]'),function(tr){
     tr.style.cursor='pointer';
-    tr.onclick=function(){
-      $('c-date').value=tr.dataset.s;
-      loadSetup(); protocol();
-      Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){
-        b.classList.toggle('on', b.dataset.v==='session'); });
-      Array.prototype.forEach.call(document.querySelectorAll('section'),function(x){
-        x.classList.remove('on'); });
-      $('v-session').classList.add('on');
-      window.scrollTo(0,0);
-    };
+    tr.onclick=function(){ openSessionEdit(tr.dataset.s); };
   });
 }
 
@@ -1785,6 +1772,106 @@ function vev(uid,start,title,body,lead){
 
 
 
+
+
+/* ---------- edit a past session ---------- */
+function openSessionEdit(dateStr){
+  var r=find(sess,dateStr)||{date:dateStr};
+  function f(id,label,type,val,extra){
+    return '<div class="ctl"><label for="'+id+'">'+label+'</label>'+
+      '<input type="'+type+'" id="'+id+'" '+(extra||'')+' value="'+
+      (val===null||val===undefined?'':String(val).replace(/"/g,'&quot;'))+'"></div>';
+  }
+  function sel(id,label,val){
+    var o=['Gummies','Capsule','Liquid softgel'].map(function(x){
+      return '<option'+(x===val?' selected':'')+'>'+x+'</option>'; }).join('');
+    return '<div class="ctl"><label for="'+id+'">'+label+'</label><select id="'+id+'">'+o+'</select></div>';
+  }
+  var felt='';
+  if(r.feltAt){ var fd=new Date(r.feltAt);
+    felt=('0'+fd.getHours()).slice(-2)+':'+('0'+fd.getMinutes()).slice(-2); }
+
+  var h='<h3>'+esc(dateStr)+'</h3>'+
+    '<div style="color:var(--sec);font-size:13px">'+esc(nameOf(r.person||who)||'')+
+    (r.finishedAt?' &middot; logged':' &middot; not logged yet')+'</div>'+
+    '<div class="panel" style="margin-top:14px">'+
+      f('e-date','Session date','date',r.date)+
+      f('e-wt','Body weight, lb','number',r.wt,'step="1" inputmode="decimal"')+
+      f('e-t0','First dose at','time',r['c-t0'])+
+      f('e-d1','Dose 1, mg','number',r['c-d1'],'inputmode="numeric"')+
+      sel('e-v1','How it was taken',r['c-v1'])+
+      f('e-d2','Dose 2, mg','number',r['c-d2'],'inputmode="numeric"')+
+      sel('e-v2','How it was taken',r['c-v2'])+
+      f('e-bd','Third dose, mg','number',r.bump?r['c-bd']:'','inputmode="numeric"')+
+      f('e-bt','Third dose at','time',r.bump?r['c-bt']:'')+
+      sel('e-vb','How it was taken',r['c-vehicle'])+
+      f('e-felt','First felt it at','time',felt)+
+    '</div>'+
+    '<div class="panel" style="margin-top:10px">'+
+      f('e-peak','Peak, 1 to 10','number',r.peakScore,'min="1" max="10" inputmode="numeric"')+
+      f('e-load','Body load, 1 to 10','number',r.bodyLoad,'min="1" max="10" inputmode="numeric"')+
+      f('e-plat','Plateau, hours','number',r.plateau,'step="0.5" inputmode="decimal"')+
+      '<div class="fl">Notes</div><div class="wd">'+
+      '<textarea id="e-notes" rows="3">'+esc(r.notes||'')+'</textarea></div>'+
+    '</div>'+
+    '<div class="hint" id="e-kg"></div>'+
+    '<button class="btn t" id="e-save">Save changes</button>'+
+    '<button class="btn g" id="e-open">Open in Session tab</button>'+
+    '<button class="btn r" id="e-del">Delete this session</button>';
+  $('sheet').innerHTML=h; addClears();
+
+  function kg(){
+    var lb=parseFloat($('e-wt').value);
+    var t=(+$('e-d1').value||0)+(+$('e-d2').value||0)+(+$('e-bd').value||0);
+    if(!(lb>0)||!(t>0)){ $('e-kg').textContent=''; return null; }
+    var v=t/(lb*0.45359237), b=doseBand(v);
+    $('e-kg').innerHTML='<b style="color:'+b[1]+'">'+v.toFixed(2)+' mg/kg &middot; '+b[0]+
+      '</b> &mdash; '+t+' mg at '+Math.round(lb)+' lb.';
+    return v;
+  }
+  ['e-wt','e-d1','e-d2','e-bd'].forEach(function(id){
+    $(id).addEventListener('input',kg); });
+  kg();
+
+  $('e-save').onclick=function(){
+    var b=this; b.disabled=true; b.textContent='Saving\u2026';
+    var bd=+$('e-bd').value||0;
+    var feltIso=null;
+    if($('e-felt').value){ var p=$('e-felt').value.split(':');
+      var fd2=new Date(($('e-date').value||dateStr)+'T00:00:00');
+      fd2.setHours(+p[0],+p[1],0,0); feltIso=fd2.toISOString(); }
+    var o={ date:$('e-date').value||dateStr,
+      wt:parseFloat($('e-wt').value)||null, mgkg:kg(),
+      'c-t0':$('e-t0').value, 'c-d1':num('e-d1'), 'c-v1':$('e-v1').value,
+      'c-d2':num('e-d2'), 'c-v2':$('e-v2').value,
+      bump:bd>0, 'c-bd':bd||null, 'c-bt':$('e-bt').value||null, 'c-vehicle':$('e-vb').value,
+      reta:!!r.reta, gap:r.gap, stack:r.stack, feltAt:feltIso,
+      peakScore:num('e-peak'), bodyLoad:num('e-load'), plateau:num('e-plat'),
+      notes:$('e-notes').value.trim(), finishedAt:r.finishedAt||new Date().toISOString() };
+    SB.from('sessions').upsert(setupToRow(o),{onConflict:'user_id,subject,session_date'})
+      .then(function(res){
+        b.disabled=false;
+        if(wrote(res,'that session')){ pull(); closeSheet(); }
+        else b.textContent='Save changes';
+      });
+  };
+  $('e-open').onclick=function(){
+    $('c-date').value=$('e-date').value||dateStr;
+    loadSetup(); protocol(); closeSheet();
+    Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(bt){
+      bt.classList.toggle('on', bt.dataset.v==='session'); });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(x){ x.classList.remove('on'); });
+    $('v-session').classList.add('on'); window.scrollTo(0,0);
+  };
+  $('e-del').onclick=function(){
+    var b=this;
+    if(b.dataset.sure!=='1'){ b.dataset.sure='1'; b.textContent='Tap again to delete'; return; }
+    SB.from('sessions').delete()
+      .match({subject_id:subjMatch(),entered_by_id:UID,session_date:dateStr})
+      .then(function(res){ if(wrote(res,'that deletion')){ pull(); closeSheet(); } });
+  };
+  $('sheet').classList.add('open'); $('shade').classList.add('open');
+}
 
 /* ---------- finishing a session ---------- */
 function openFinish(){
@@ -2355,7 +2442,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261122-183614';
+var BUILD='20261123-102458';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })

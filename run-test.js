@@ -232,6 +232,38 @@ setTimeout(()=>{
     w.render();
     const t=d.getElementById('t-sess').textContent;
     if(!t.includes('3.67')) throw new Error('got '+t.slice(0,200)); });
+  T('only one body weight field',()=>{
+    if(d.querySelectorAll('#v-session input[id="c-wt"]').length!==1)
+      throw new Error('duplicate weight fields'); });
+  T('session date defaults to today',()=>{
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(d.getElementById('c-date').value))
+      throw new Error('blank: '+JSON.stringify(d.getElementById('c-date').value)); });
+  T('past session opens an editor',()=>{
+    w.sess=[{date:'2026-11-21',person:'U1','c-t0':'17:30','c-d1':100,'c-v1':'Liquid softgel',
+      'c-d2':100,'c-v2':'Gummies',bump:true,'c-bd':25,'c-bt':'20:30','c-vehicle':'Gummies',
+      gap:7,wt:200,mgkg:2.48,peakScore:8,bodyLoad:4,plateau:3,
+      feltAt:new Date('2026-11-21T18:02:00').toISOString()}];
+    w.render();
+    const tr=d.getElementById('t-sess').querySelector('tr[data-s]');
+    tr.onclick();
+    ['e-date','e-wt','e-t0','e-d1','e-v1','e-d2','e-v2','e-bd','e-bt','e-felt',
+     'e-peak','e-load','e-plat','e-notes','e-save','e-del'].forEach(id=>{
+      if(!d.getElementById(id)) throw new Error('missing '+id); }); });
+  T('editor prefills what was logged',()=>{
+    if(d.getElementById('e-d1').value!=='100') throw new Error('dose1: '+d.getElementById('e-d1').value);
+    if(d.getElementById('e-v1').value!=='Liquid softgel') throw new Error('form1');
+    if(d.getElementById('e-bd').value!=='25') throw new Error('third dose');
+    if(d.getElementById('e-felt').value!=='18:02') throw new Error('felt: '+d.getElementById('e-felt').value);
+    if(d.getElementById('e-peak').value!=='8') throw new Error('peak'); });
+  T('editor recomputes mg/kg live',()=>{
+    if(!d.getElementById('e-kg').textContent.includes('2.48')) throw new Error('got '+d.getElementById('e-kg').textContent);
+    d.getElementById('e-d2').value='50';
+    d.getElementById('e-d2').dispatchEvent(new w.Event('input',{bubbles:true}));
+    d.getElementById('e-wt').dispatchEvent(new w.Event('input',{bubbles:true}));
+    if(!d.getElementById('e-kg').textContent.includes('1.93')) throw new Error('did not update: '+d.getElementById('e-kg').textContent); });
+  T('delete asks twice',()=>{
+    const b=d.getElementById('e-del'); b.onclick();
+    if(!b.textContent.includes('Tap again')) throw new Error('deleted on first tap'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 
