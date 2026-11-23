@@ -215,6 +215,28 @@ setTimeout(()=>{
     if(!t.includes('3.67')) throw new Error('got '+t.slice(0,120));
     if(!t.includes('very high')) throw new Error('band wrong: '+t.slice(0,120));
     d.getElementById('c-wt').value=''; });
+  T('mg per kg computes',()=>{
+    w.customs=[]; w.hidden=[]; w.RECDATE=null; w.checks={}; w.sess=[];
+    d.getElementById('c-date').value='2026-11-28';
+    d.getElementById('c-t0').value='18:30';
+    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='100';
+    d.getElementById('c-wt').value='120';
+    w.protocol();
+    const v=w.mgPerKg();
+    if(Math.abs(v-3.674)>0.02) throw new Error('got '+v);
+    if(!d.getElementById('dosekg').textContent.includes('3.67')) throw new Error('not shown'); });
+  T('high dose is flagged',()=>{
+    if(!d.getElementById('dosekg').textContent.includes('firm-to-high'))
+      throw new Error('no warning at 3.67 mg/kg'); });
+  T('moderate dose is not flagged',()=>{
+    d.getElementById('c-d2').value='25'; w.protocol();
+    const t=d.getElementById('dosekg').textContent;
+    if(t.includes('firm-to-high')) throw new Error('false alarm at '+w.mgPerKg().toFixed(2)); });
+  T('history shows mg/kg',()=>{
+    w.sess=[{date:'2026-11-21',person:'U1','c-t0':'18:30','c-d1':100,'c-v1':'Liquid softgel',
+      'c-d2':100,'c-v2':'Gummies',bump:false,gap:7,mgkg:3.68}];
+    w.render();
+    if(!d.getElementById('t-sess').textContent.includes('3.68')) throw new Error('missing'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 

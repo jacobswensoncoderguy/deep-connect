@@ -385,8 +385,11 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl" id="c-br2"><label for="c-bd">Bump amount</label><input type="number" id="c-bd" value="50" inputmode="numeric"></div>
     <div class="ctl" id="c-br3"><label for="c-vehicle">How you’re taking it</label><select id="c-vehicle">
       <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
+    <div class="ctl"><label for="c-wt">Body weight (lb)</label>
+      <input type="number" id="c-wt" inputmode="decimal" placeholder="lb"></div>
     <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
+  <div class="hint" id="dosekg"></div>
   <button class="btn t" id="savesession">Save session</button>
   <button class="btn b" id="finishsession">Finish session &amp; log how it went</button>
   <div class="hint" id="setupstate"></div>
@@ -598,7 +601,7 @@ function setupToRow(o){ return stamp({
   dose1_mg:+o['c-d1']||null, dose1_form:o['c-v1'], dose2_mg:+o['c-d2']||null, dose2_form:o['c-v2'],
   bump:!!o.bump, bump_time:o.bump?(o['c-bt']||null):null, bump_mg:o.bump?(+o['c-bd']||null):null,
   bump_form:o.bump?o['c-vehicle']:null, on_reta:!!o.reta, total_mg:o.mg||null,
-  felt_at:o.feltAt||null, finished_at:o.finishedAt||null,
+  felt_at:o.feltAt||null, finished_at:o.finishedAt||null, mg_per_kg:o.mgkg||null,
   peak_score:o.peakScore||null, body_load:o.bodyLoad||null,
   plateau_hrs:o.plateau||null, notes:o.notes||null,
   days_since_last:o.gap }); }
@@ -609,7 +612,7 @@ function rowToSetup(x){ return {
   'c-d2':x.dose2_mg, 'c-v2':x.dose2_form, bump:x.bump,
   'c-bt':x.bump_time?String(x.bump_time).slice(0,5):'', 'c-bd':x.bump_mg,
   'c-vehicle':x.bump_form, reta:x.on_reta, feltAt:x.felt_at,
-  finishedAt:x.finished_at, peakScore:x.peak_score, bodyLoad:x.body_load,
+  finishedAt:x.finished_at, mgkg:x.mg_per_kg, peakScore:x.peak_score, bodyLoad:x.body_load,
   plateau:x.plateau_hrs, notes:x.notes }; }
 async function pull(){
   if(!SB||!UID) return;
@@ -714,7 +717,7 @@ function eventDate(off){
   d.setMinutes(d.getMinutes()+am); return d;
 }
 function PRE(){ return [
- {id:'gf',off:-60,n:'Grapefruit juice',d:'10 fl oz if you are over 180 lb, 16 fl oz if under. Diluted is fine — finish all of it.'},
+ {id:'gf',off:-60,n:'Grapefruit juice',d:'8 fl oz under 150 lb, 10 fl oz over. Less if you are smaller, not more — it raises exposure.'},
  {id:'nd',off:-60,n:'Nerve Defend ×3',d:'ALA 600 · NAC 600 · ALCAR 500 · B6. Pre-load only — peri-session coverage is the hourly doses.'},
  {id:'tad',off:-30,n:'Tadalafil 20 mg',d:'Needs two hours to come up.'},
  {id:'pt',off:-30,n:'PT-141 2 mg',d:'Nausea window lands well before peak.'},
@@ -776,10 +779,10 @@ var TRAIN=[{id:'t1',n:'Walk only today',day:[1,1]},
 /* ---------- evidence cards ----------
    tier: M measured in humans · P mechanism, no outcome trial · A assumption · N none */
 var EV={
- gf:{dose:'10 fl oz over 180 lb, 16 fl oz under, 60 min before. Diluted is fine.',
+ gf:{dose:'8 fl oz under 150 lb, 10 fl oz over, 60 min before. Smaller person takes LESS.',
   why:'Furanocoumarins irreversibly knock out intestinal CYP3A4, so the same milligrams produce more exposure.',
   tier:'P',fig:'Human data exists but for other drugs — grapefruit raised felodipine AUC 93%. 5-MAPB runs through CYP1A2 and 2D6 as well as 3A4, so inhibiting 3A4 captures only part of its clearance. The size of the effect for this compound is unverified.',
-  note:'One serving inside 4 hours gives the maximal effect; roughly half the inhibition is still present at 10 hours. More juice does not add more.',
+  note:'One serving inside 4 hours gives the maximal effect; roughly half the inhibition is still present at 10 hours. More juice does not add more. Scaling the dose UP for a lighter person is backwards — this raises exposure, so the lighter person needs less or none.',
   src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3589309/'},
  nd:{dose:'3 caps — ALA 600 mg · NAC 600 mg · ALCAR 500 mg · B6 50 mg.',
   why:'Antioxidant pre-load. ALA prevented MDMA neurotoxicity in rodents even when body temperature still rose.',
@@ -924,6 +927,7 @@ var SF=['c-wt','c-t0','c-d1','c-v1','c-d2','c-v2','c-bt','c-bd','c-vehicle'];
 var setupT=null;
 function readSetup(){
   var o={date:$('c-date').value};
+  o.mgkg=mgPerKg();
   var prevF=find(sess,o.date);
   if(prevF){ o.feltAt=prevF.feltAt; o.finishedAt=prevF.finishedAt;
     o.peakScore=prevF.peakScore; o.bodyLoad=prevF.bodyLoad;
@@ -1359,7 +1363,7 @@ function protocol(){
       ' min; the liquid mostly slips past it.':'')+
     ' Antioxidants start at peak, not before.';
   $('hsub').textContent=$('c-date').value+' · '+clock(0)+' start';
-  queueSoon(); paintFelt();
+  queueSoon(); paintFelt(); paintDose();
   var last=sess.filter(function(s){return s.person===who&&s.date<$('c-date').value;})
     .map(function(s){return s.date;}).sort().pop();
   var gap=last?Math.round((new Date($('c-date').value)-new Date(last))/86400000):null;
@@ -1666,7 +1670,7 @@ function sessTable(){
   var t=$('t-sess'); if(!t) return;
   var list=(blind?sess.filter(function(r){return r.person===who;}):sess.slice())
     .sort(function(a,b){return (b.date||'').localeCompare(a.date||'');});
-  var cols=['Date','Who','Start','Dose 1','Dose 2','Total','Onset','Peak','Load','Plateau','Gap'];
+  var cols=['Date','Who','Start','Dose 1','Dose 2','Total','mg/kg','Onset','Peak','Load','Plateau','Gap'];
   var h='<tr>'+cols.map(function(c){return '<th>'+c+'</th>';}).join('')+'</tr>';
   if(!list.length){ t.innerHTML=h+'<tr><td colspan="'+cols.length+'">nothing yet</td></tr>'; return; }
   t.innerHTML=h+list.map(function(r){
@@ -1687,7 +1691,9 @@ function sessTable(){
       '<td>'+esc(nameOf(r.person)||r.personName||'')+'</td>'+
       '<td>'+fmtT(r['c-t0'])+'</td>'+
       '<td>'+esc(d1)+'</td><td>'+esc(d2)+'</td>'+
-      '<td>'+tot+' mg</td><td>'+ons+'</td>'+
+      '<td>'+tot+' mg</td>'+
+      '<td>'+(r.mgkg?('<b style="color:'+doseBand(r.mgkg)[1]+'">'+r.mgkg.toFixed(2)+'</b>'):'—')+'</td>'+
+      '<td>'+ons+'</td>'+
       '<td>'+(r.peakScore||'—')+'</td><td>'+(r.bodyLoad||'—')+'</td>'+
       '<td>'+(r.plateau?r.plateau+'h':'—')+'</td>'+
       '<td>'+(r.gap==null?'—':r.gap+'d')+'</td></tr>';
@@ -1831,6 +1837,56 @@ function doseLine(total){
   var band = r<2.0 ? 'conservative' : r<2.6 ? 'moderate' : r<3.2 ? 'high' : 'very high';
   var col  = r<2.6 ? 'var(--teal2)' : r<3.2 ? 'var(--amb2)' : '#F4556B';
   return ' &middot; <b style="color:'+col+'">'+r.toFixed(2)+' mg/kg</b> ('+band+')';
+}
+
+
+/* ---------- dose intensity ----------
+   Women show more intense physiological and negative effects than men at the
+   SAME weight-adjusted dose (Pardo-Lozano 2012, Liechti 2001), so matching a
+   partner's mg/kg is not the target — landing under it is. */
+function weightLb(){
+  var v=+$('c-wt').value; if(v>0) return v;
+  var p=personOf(who); return (p&&p.weight_lb)?+p.weight_lb:0;
+}
+function totalMg(){
+  var d1=+$('c-d1').value||0, d2=+$('c-d2').value||0;
+  var bd=$('c-bump').classList.contains('on')?(+$('c-bd').value||0):0;
+  return d1+d2+bd;
+}
+function mgPerKg(){
+  var lb=weightLb(); if(!lb) return null;
+  return totalMg()/(lb/2.2046);
+}
+function doseBand(v){
+  if(v===null) return ['','var(--sec)'];
+  if(v<1.6)  return ['light','var(--teal2)'];
+  if(v<2.2)  return ['moderate','var(--teal2)'];
+  if(v<2.8)  return ['firm','var(--amb)'];
+  if(v<3.4)  return ['high','var(--amb)'];
+  return ['very high','#F4556B'];
+}
+function paintDose(){
+  var v=mgPerKg(), lb=weightLb(), el2=$('dosekg'); if(!el2) return;
+  if(!lb){ el2.innerHTML='<b>Add a body weight</b> to see mg/kg. '+
+    'Total milligrams on their own say nothing about intensity.'; return; }
+  var b=doseBand(v);
+  var html='<b style="color:'+b[1]+'">'+v.toFixed(2)+' mg/kg &middot; '+b[0]+'</b> &mdash; '+
+    totalMg()+' mg at '+Math.round(lb)+' lb.';
+  /* compare against the other person's most recent session */
+  var tid = who===UID ? theirId() : UID;
+  var others = sess.filter(function(r){
+      return r.person===(tid||'__them') && r.mgkg; })
+    .sort(function(a,b2){ return a.date.localeCompare(b2.date); });
+  if(others.length){
+    var last=others[others.length-1];
+    var diff=Math.round(((v/last.mgkg)-1)*100);
+    if(Math.abs(diff)>=5) html+=' That is <b>'+Math.abs(diff)+'% '+(diff>0?'higher':'lower')+
+      '</b> per kilogram than '+esc(nameOf(last.person))+'&rsquo;s last session ('+
+      last.mgkg.toFixed(2)+').';
+  }
+  if(v>=2.8) html+='<br><br><b style="color:#F4556B">This is a firm-to-high dose per kilogram.</b> '+
+    'If the next day has been rough, this number is the first thing to move \u2014 before any supplement.';
+  el2.innerHTML=html;
 }
 
 /* ---------- the two days before ---------- */
@@ -2141,6 +2197,7 @@ function whoBar(){
     btn.onclick=function(){
       if(who===btn.dataset.w) return;
       who=btn.dataset.w; proxy=(who!==UID);
+      $('c-wt').value='';
       paintWho(); whoBar(); dirtyD=false; loadSetup(); protocol(); loadDaily(); render();
     };
   });
@@ -2285,6 +2342,11 @@ $('restore').onclick=function(){ restoreAll(); };
 
 $('pushtog').onclick=function(){ pushOn?disablePush():enablePush(); };
 $('felt-now').onclick=function(){ setFelt(new Date().toISOString()); };
+$('c-wt').addEventListener('change',function(){
+  var v=+this.value; if(!(v>0)||!canWrite()||who==='__them') return;
+  SB.from('profiles').update({weight_lb:v}).match({id:UID})
+    .then(function(r){ if(wrote(r,'your weight')) loadPeople(); });
+});
 $('felt-time').addEventListener('change',function(){
   var v=this.value; if(!v) return;
   var p=v.split(':'), d=new Date(($('c-date').value||todayStr())+'T00:00:00');
@@ -2300,7 +2362,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261122-182350';
+var BUILD='20261122-182733';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
