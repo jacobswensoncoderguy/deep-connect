@@ -181,6 +181,22 @@ setTimeout(()=>{
     w.render();
     const t=d.getElementById('t-sess').textContent;
     if(!t.includes('Peak')||!t.includes('3.5h')) throw new Error('got '+t.slice(0,200)); });
+  T('pre-load block renders',()=>{
+    w.customs=[]; w.hidden=[]; w.RECDATE=null;
+    d.getElementById('c-date').value='2026-11-28';
+    d.getElementById('c-t0').value='18:30';
+    w.checks={}; w.protocol();
+    const t=d.getElementById('g-load').textContent;
+    if(!t.includes('ALA 1,200 mg')) throw new Error('no preload items: '+t.slice(0,120));
+    if(!t.includes('two days out')) throw new Error('no day -2: '+t.slice(0,200));
+    if(!t.includes('day before')) throw new Error('no day -1');
+    if(!t.includes('11/26')) throw new Error('no dated label');
+    if(!d.getElementById('loadhint').textContent.includes('2026-11-26')) throw new Error('wrong start date'); });
+  T('mid-session rounds still there',()=>{
+    if(!d.getElementById('g-peri').textContent.includes('ALA 300 mg'))
+      throw new Error('hourly rounds removed'); });
+  T('pre-load has its own evidence',()=>{
+    const e=w.EV['l-am']; if(!e||!/Aguirre/.test(e.fig)) throw new Error('missing card'); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 

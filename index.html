@@ -391,6 +391,10 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
   <div class="sum" id="dosesum"></div>
   <div class="warnbox" id="gates"></div>
 
+  <div class="lab" data-p="pre"><i></i><span>Two days out</span><em id="n-load"></em></div>
+  <div class="hint" id="loadhint"></div>
+  <div class="tl" id="g-load"></div>
+
   <div class="lab" data-p="pre"><i></i><span>Before</span><em id="n-pre"></em></div>
   <div class="tl" id="g-pre"></div>
   <div class="lab"><i></i><span>During</span><em id="n-peri"></em></div>
@@ -735,6 +739,15 @@ function PERI(){
   a.push({id:'stop',off:pk+300,n:'Wind down',d:'The single biggest lever on tomorrow.',key:1});
   return a.sort(function(x,y){return (x.off===null?1e9:x.off)-(y.off===null?1e9:y.off);});
 }
+/* The only study that prevented serotonergic deficits pre-loaded lipoic acid for
+   two days beforehand, at a dose far above anything taken during a session.
+   This runs alongside the hourly rounds, which come from a human 5-MAPB trial. */
+var LOAD=[
+ {id:'l-am',n:'ALA 1,200 mg',d:'Morning, with food.',dayoff:[-2,-1]},
+ {id:'l-pm',n:'ALA 1,200 mg',d:'Evening, with food.',dayoff:[-2,-1]},
+ {id:'l-nac',n:'NAC 600 mg twice',d:'Glutathione takes weeks to build. Earlier is better.',dayoff:[-2,-1]},
+ {id:'l-sleep',n:'Bank a full night',d:'The largest single lever on how tomorrow goes.',dayoff:[-2,-1]}
+];
 var BED=[{id:'bmag',n:'Magnesium glycinate 400 mg'},{id:'bmel',n:'Melatonin 3–5 mg'},
  {id:'belec',n:'Electrolytes and water'},
  {id:'bno5',n:'No 5-HTP tonight',d:'A precursor plus a releaser is the serotonin syndrome setup. Nothing until T+24 h.'}];
@@ -808,6 +821,19 @@ var EV={
   tier:'M',fig:'Measured half-lives: ALA 36–81 min after 1,200 mg oral; vitamin C about 30 min at high plasma levels. Those numbers are the whole argument for the schedule.',
   note:'This exact schedule appears in a human trial of non-racemic 5-MAPB — 250 mg ascorbic acid plus 300 mg ALA hourly from T+3h. But it was background support in a study testing enantiomer ratios, not a tested variable. File it under neuroprotection, not comedown.',
   src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3489916/'},
+ 'l-am':{dose:'1,200 mg twice daily on each of the two days before. Separate from the hourly rounds during.',
+  why:'Free-radical formation is the proposed driver of serotonergic damage. Lipoic acid regenerates other antioxidants and restores thiols, and it has to be on board before the exposure rather than chasing it.',
+  tier:'P',fig:'Aguirre 1999: rats given 100 mg/kg twice daily for two days before MDMA kept 5-HT and transporter density fully intact, where untreated animals lost 40-60%. Scaled by body surface area that is roughly 1,500 mg twice daily for a 200 lb human, and the rats were injected, where oral lipoic acid runs about 30% absorbed. No human outcome trial exists.',
+  note:'Drop ALA from day 3 after the session. Chronic high-dose antioxidants blunt hypertrophy adaptation.',
+  src:'https://pubmed.ncbi.nlm.nih.gov/10619664/'},
+ 'l-nac':{dose:'600 mg twice daily, starting two days out and running through day 10.',
+  why:'Glutathione substrate. Unlike lipoic acid this one is genuinely cumulative, so starting early matters more than timing it around the session.',
+  tier:'M',fig:'Paschalis 2018: 30 days of supplementation to restore baseline glutathione in low-glutathione individuals. Two days will not finish the job, but it is the start of it.',
+  note:'Keep it running after. It is the one antioxidant worth taking past day 3.'},
+ 'l-sleep':{dose:'Two full nights before.',
+  why:'Sleep debt is the largest component of a comedown and no supplement repays it.',
+  tier:'M',fig:'The clinical MDMA studies that found no mood drop all controlled sleep. The naturalistic studies that found one did not.',
+  note:'This is the highest-yield item in the whole protocol and it costs nothing.'},
  mag:{dose:'200 mg at the first sign of jaw tension.',
   why:'Bruxism and cramping.',
   tier:'A',fig:'Community practice. No trial of magnesium against jaw clenching from a releaser.',
@@ -1303,6 +1329,7 @@ function rows(target,list,timed,count,dayKey){
   return [done,list.length];
 }
 function protocol(){
+  loadRows();
   var a=rows('g-pre',sortByOff(withCustom(PRE(),'pre')),'pre','n-pre');
   var b=rows('g-peri',sortByOff(withCustom(PERI(),'peri')),1,'n-peri');
   var c=rows('g-bed',withCustom(BED,'bed'),0,'n-bed');
@@ -1776,6 +1803,35 @@ function openFinish(){
   $('sheet').classList.add('open'); $('shade').classList.add('open');
 }
 
+
+/* ---------- the two days before ---------- */
+function shiftDate(d,n){
+  var x=new Date(d+'T00:00:00'); x.setDate(x.getDate()+n);
+  return x.getFullYear()+'-'+('0'+(x.getMonth()+1)).slice(-2)+'-'+('0'+x.getDate()).slice(-2);
+}
+function loadRows(){
+  var sd=$('c-date').value;
+  if(!sd){ $('g-load').innerHTML=''; $('loadhint').textContent=''; return; }
+  var DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  function label(n){
+    var x=new Date(shiftDate(sd,n)+'T00:00:00');
+    return DOW[x.getDay()]+' '+(x.getMonth()+1)+'/'+x.getDate();
+  }
+  var list=[];
+  withCustom(LOAD,'load').forEach(function(e){
+    (e.dayoff||[-1]).forEach(function(n){
+      list.push({id:e.id+'_'+n, base:e.id,
+        n:e.n+' \u2014 '+label(n)+(n===-2?' (two days out)':' (day before)'),
+        d:e.d||'', off:undefined});
+    });
+  });
+  list.sort(function(a,b){ return a.id.slice(-2).localeCompare(b.id.slice(-2)); });
+  rows('g-load',list,0,'n-load',sd);
+  var d2=shiftDate(sd,-2), d1=shiftDate(sd,-1);
+  $('loadhint').innerHTML='Starts <b>'+d2+'</b> and runs through <b>'+d1+'</b>. '+
+    'This is the part with the strongest evidence behind it, and the part that has to happen before the day.';
+}
+
 /* ---------- recovery days ----------
    Recovery items are ticked per calendar day, not per session, so day 1 and
    day 2 never share a check-off. */
@@ -2215,7 +2271,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261122-091040';
+var BUILD='20261122-180951';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
