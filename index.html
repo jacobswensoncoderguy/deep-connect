@@ -716,7 +716,7 @@ function eventDate(off){
   d.setMinutes(d.getMinutes()+am); return d;
 }
 function PRE(){ return [
- {id:'gf',off:-45,n:'Grapefruit juice',d:'8 fl oz, 30 to 60 minutes before. One serving is the whole effect — more does not add.'},
+ {id:'gf',off:-25,n:'Grapefruit juice',d:'8 fl oz, 15 to 30 minutes before. Closer to the dose is stronger — one serving is the whole effect.'},
  {id:'nd',off:-60,n:'Nerve Defend ×3',d:'ALA 600 · NAC 600 · ALCAR 500 · B6. Pre-load only — peri-session coverage is the hourly doses.'},
  {id:'tad',off:-30,n:'Tadalafil 20 mg',d:'Needs two hours to come up.'},
  {id:'pt',off:-30,n:'PT-141 2 mg',d:'Nausea window lands well before peak.'},
@@ -778,9 +778,9 @@ var TRAIN=[{id:'t1',n:'Walk only today',day:[1,1]},
 /* ---------- evidence cards ----------
    tier: M measured in humans · P mechanism, no outcome trial · A assumption · N none */
 var EV={
- gf:{dose:'8 fl oz, 30 to 60 min before. Same for both of you \u2014 not scaled by weight.',
+ gf:{dose:'8 fl oz, 15 to 30 min before. Closer is stronger. Same for both of you \u2014 not scaled by weight.',
   why:'Furanocoumarins irreversibly knock out intestinal CYP3A4, so the same milligrams produce more exposure.',
-  tier:'P',fig:'One serving drops intestinal CYP3A4 about 47% within 4 hours, and inhibition persists for several days \u2014 so timing it tightly is not necessary. 200 mL is the threshold for a clinically relevant effect; concentrate and fresh both work, and commercial juice carries more furanocoumarin than fresh-squeezed because the fruit is pressed with the skin on. Human data is for other drugs: grapefruit raised felodipine AUC 93%. 5-MAPB also runs through CYP1A2 and 2D6, so this captures only part of its clearance. The size of the effect for this compound is unverified.',
+  tier:'P',fig:'Strongest closest to the dose. Lundahl 1995 gave juice at the same time and at 1, 4, 10 and 24 hours before felodipine: every interval raised Cmax 32-99%, the effect on AUC held out to 10 hours, and simultaneous intake produced the most pronounced response. One serving drops intestinal CYP3A4 about 47% within 4 hours and some inhibition lingers for days, but it decays from the moment you drink it \u2014 there is nothing to gain by drinking it early. 200 mL is the threshold for a clinically relevant effect; concentrate and fresh both work, and commercial juice carries more furanocoumarin than fresh-squeezed because the fruit is pressed with the skin on. Human data is for other drugs: grapefruit raised felodipine AUC 93%. 5-MAPB also runs through CYP1A2 and 2D6, so this captures only part of its clearance. The size of the effect for this compound is unverified.',
   note:'Raises peak exposure, not duration \u2014 it does not widen the curve. Drop it on a session where you are testing a dose change, or you have moved two variables at once.',
   src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3589309/'},
  nd:{dose:'3 caps — ALA 600 mg · NAC 600 mg · ALCAR 500 mg · B6 50 mg.',
@@ -2442,7 +2442,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261125-171810';
+var BUILD='20261125-172051';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
