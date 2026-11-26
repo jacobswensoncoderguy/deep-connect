@@ -376,15 +376,15 @@ footer{margin-top:38px;font-size:12px;color:var(--dim);line-height:1.6;padding:0
     <div class="ctl"><label for="c-t0">Time of first dose</label><input type="time" id="c-t0" value="17:00"></div>
     <div class="ctl"><label for="c-d1">Dose 1</label><input type="number" id="c-d1" value="50" inputmode="numeric"></div>
     <div class="ctl"><label for="c-v1">How you’re taking it</label><select id="c-v1">
-      <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
+      <option>Liquid softgel</option><option>Gummies</option></select></div>
     <div class="ctl"><label for="c-d2">Dose 2 (one hour later)</label><input type="number" id="c-d2" value="100" inputmode="numeric"></div>
     <div class="ctl"><label for="c-v2">How you’re taking it</label><select id="c-v2">
-      <option>Gummies</option><option selected>Liquid softgel</option><option>Capsule</option></select></div>
+      <option selected>Liquid softgel</option><option>Gummies</option></select></div>
     <div class="ctl"><label>Bump</label><button class="tg on" id="c-bump" role="switch" aria-checked="true" aria-label="Bump"></button></div>
     <div class="ctl" id="c-br1"><label for="c-bt">Bump at</label><input type="time" id="c-bt" value="20:00"></div>
     <div class="ctl" id="c-br2"><label for="c-bd">Bump amount</label><input type="number" id="c-bd" value="50" inputmode="numeric"></div>
     <div class="ctl" id="c-br3"><label for="c-vehicle">How you’re taking it</label><select id="c-vehicle">
-      <option>Gummies</option><option>Capsule</option><option>Liquid softgel</option></select></div>
+      <option>Liquid softgel</option><option>Gummies</option></select></div>
     <div class="ctl"><label>Taking retatrutide</label><button class="tg on" id="c-reta" role="switch" aria-checked="true" aria-label="On retatrutide"></button></div>
   </div>
   <div class="hint" id="dosekg"></div>
@@ -1780,7 +1780,7 @@ function openSessionEdit(dateStr){
       (val===null||val===undefined?'':String(val).replace(/"/g,'&quot;'))+'"></div>';
   }
   function sel(id,label,val){
-    var o=['Gummies','Capsule','Liquid softgel'].map(function(x){
+    var o=['Liquid softgel','Gummies'].concat(val&&val==='Capsule'?['Capsule']:[]).map(function(x){
       return '<option'+(x===val?' selected':'')+'>'+x+'</option>'; }).join('');
     return '<div class="ctl"><label for="'+id+'">'+label+'</label><select id="'+id+'">'+o+'</select></div>';
   }
@@ -2466,7 +2466,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261125-172852';
+var BUILD='20261125-184909';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
