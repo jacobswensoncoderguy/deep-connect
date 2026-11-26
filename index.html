@@ -938,8 +938,8 @@ function readSetup(){
   return o;
 }
 function applySetup(r){
-  var pw=personOf(who);
-  if(pw&&pw.weight_lb&&!$('c-wt').value) $('c-wt').value=pw.weight_lb;
+  var sw=storedWeight();
+  if(sw && !$('c-wt').value) $('c-wt').value=sw;
   if(!r) return;
   SF.forEach(function(i){ if(r[i]!==undefined&&r[i]!==null&&r[i]!=='') $(i).value=r[i]; });
   [['c-bump',r.bump],['c-reta',r.reta]].forEach(function(p){
@@ -1914,6 +1914,14 @@ function openFinish(){
 function weightLb(){
   var v=parseFloat($('c-wt').value);
   if(v>0) return v;
+  return storedWeight();
+}
+/* the saved weight for whoever is selected, partner included */
+function storedWeight(){
+  if(who==='__them'){
+    var m=meRow();
+    return (m&&m.partner_weight_lb>0)?+m.partner_weight_lb:null;
+  }
   var p=personOf(who);
   return (p&&p.weight_lb>0)?+p.weight_lb:null;
 }
@@ -1940,9 +1948,14 @@ function doseLine(){
 }
 function saveWeight(){
   var v=parseFloat($('c-wt').value);
-  if(!(v>0)||!canWrite()||who==='__them') return;
-  SB.from('profiles').update({weight_lb:v}).match({id:who})
-    .then(function(r){ if(!r.error){ var p=personOf(who); if(p) p.weight_lb=v; } });
+  if(!(v>0)||!canWrite()) return;
+  if(who==='__them'){
+    SB.from('profiles').update({partner_weight_lb:v}).match({id:UID})
+      .then(function(r){ if(!r.error){ var m=meRow(); if(m) m.partner_weight_lb=v; } });
+  } else {
+    SB.from('profiles').update({weight_lb:v}).match({id:who})
+      .then(function(r){ if(!r.error){ var p=personOf(who); if(p) p.weight_lb=v; } });
+  }
 }
 function paintDose(){
   var box=$('dosekg'); if(!box) return;
@@ -2439,7 +2452,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261125-172432';
+var BUILD='20261125-172538';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })

@@ -268,6 +268,21 @@ setTimeout(()=>{
   T('delete asks twice',()=>{
     const b=d.getElementById('e-del'); b.onclick();
     if(!b.textContent.includes('Tap again')) throw new Error('deleted on first tap'); });
+  T('weight is remembered per person',()=>{
+    w.PEOPLE=[{id:'U1',display_name:'Jake',partner_name:'Abbie',couple_id:'C',
+      weight_lb:220,partner_weight_lb:125}];
+    w.ME=w.PEOPLE[0]; w.who='U1';
+    d.getElementById('c-wt').value='';
+    if(w.weightLb()!==220) throw new Error('mine: '+w.weightLb());
+    w.who='__them';
+    if(w.weightLb()!==125) throw new Error('partner: '+w.weightLb());
+    w.who='U1'; });
+  T('mg/kg uses the remembered weight',()=>{
+    d.getElementById('c-wt').value='';
+    d.getElementById('c-bump').classList.remove('on');
+    d.getElementById('c-d1').value='112'; d.getElementById('c-d2').value='0';
+    w.protocol();
+    if(Math.abs(w.mgPerKg()-1.12)>0.02) throw new Error('got '+w.mgPerKg()); });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 
