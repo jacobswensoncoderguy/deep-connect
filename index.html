@@ -1935,11 +1935,23 @@ function mgPerKg(){
   if(!(lb>0)||!(t>0)) return null;
   return t/(lb*0.45359237);
 }
+/* Bands from the MDMA dose-finding literature, not invented.
+   Farre: 50 mg judged too low, 150 mg abandoned for cardiovascular and
+   subjective side effects, 75 and 125 mg selected. In a ~70 kg population
+   that is a usable window of about 1.0 to 1.8 mg/kg, with ~2.0 the ceiling.
+   Non-linear kinetics mean exposure climbs faster than dose past that. */
 function doseBand(v){
-  if(v<2.0) return ['conservative','var(--teal2)'];
-  if(v<2.6) return ['moderate','var(--teal2)'];
-  if(v<3.2) return ['firm-to-high','var(--amb2)'];
-  return ['very high','#F4556B'];
+  if(v<1.0) return ['below the studied range','var(--dim)'];
+  if(v<1.5) return ['low end of effective','var(--teal2)'];
+  if(v<1.9) return ['the optimum','var(--teal2)'];
+  if(v<2.1) return ['top of the studied range','var(--amb2)'];
+  return ['past where trials stopped','#F4556B'];
+}
+/* what the optimum would be for whoever is selected */
+function targetMg(){
+  var lb=weightLb(); if(!(lb>0)) return null;
+  var kg=lb*0.45359237;
+  return [Math.round(kg*1.5/5)*5, Math.round(kg*1.8/5)*5];
 }
 function doseLine(){
   var r=mgPerKg(); if(r===null) return '';
@@ -1966,6 +1978,8 @@ function paintDose(){
   var b=doseBand(v);
   var html='<b style="color:'+b[1]+'">'+v.toFixed(2)+' mg/kg &middot; '+b[0]+'</b> &mdash; '+
     totalMg()+' mg at '+Math.round(lb)+' lb.';
+  var t=targetMg();
+  if(t) html+=' Optimum for this weight is <b>'+t[0]+'\u2013'+t[1]+' mg</b>.';
   /* compare against the other person\'s most recent session */
   var tid = who===UID ? theirId() : UID;
   var others=sess.filter(function(r){ return r.person===(tid||'__them') && r.mgkg>0; })
@@ -2452,7 +2466,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261125-172538';
+var BUILD='20261125-172852';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })

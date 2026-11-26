@@ -211,13 +211,13 @@ setTimeout(()=>{
     w.protocol();
     if(Math.abs(w.mgPerKg()-3.674)>0.02) throw new Error('got '+w.mgPerKg());
     if(!d.getElementById('dosesum').textContent.includes('3.67')) throw new Error('not in summary');
-    if(!d.getElementById('dosekg').textContent.includes('very high')) throw new Error('band wrong'); });
-  T('matched dose reads moderate',()=>{
-    d.getElementById('c-wt').value='200';
-    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='125';
+    if(!d.getElementById('dosekg').textContent.includes('past where trials stopped')) throw new Error('band wrong'); });
+  T('a dose in range reads as the optimum',()=>{
+    d.getElementById('c-wt').value='220';
+    d.getElementById('c-d1').value='100'; d.getElementById('c-d2').value='60';
     w.protocol();
-    if(Math.abs(w.mgPerKg()-2.48)>0.02) throw new Error('got '+w.mgPerKg());
-    if(!d.getElementById('dosekg').textContent.includes('moderate')) throw new Error('band wrong'); });
+    if(Math.abs(w.mgPerKg()-1.60)>0.03) throw new Error('got '+w.mgPerKg());
+    if(!d.getElementById('dosekg').textContent.includes('the optimum')) throw new Error('band wrong'); });
   T('compares against the other person',()=>{
     w.PEOPLE=[{id:'U1',display_name:'Jake',couple_id:'C'},
               {id:'U2',display_name:'Abbie',couple_id:'C'}];
@@ -283,6 +283,27 @@ setTimeout(()=>{
     d.getElementById('c-d1').value='112'; d.getElementById('c-d2').value='0';
     w.protocol();
     if(Math.abs(w.mgPerKg()-1.12)>0.02) throw new Error('got '+w.mgPerKg()); });
+  T('dose bands follow the literature',()=>{
+    w.PEOPLE=[{id:'U1',display_name:'Jake',partner_name:'Abbie',couple_id:'C',
+      weight_lb:220,partner_weight_lb:125}];
+    w.ME=w.PEOPLE[0]; w.who='U1';
+    d.getElementById('c-wt').value='220';
+    d.getElementById('c-bump').classList.remove('on');
+    d.getElementById('c-d2').value='0';
+    const at=(mg)=>{ d.getElementById('c-d1').value=String(mg); w.protocol();
+      return d.getElementById('dosekg').textContent; };
+    if(!at(150).includes('the optimum')) throw new Error('150mg: '+at(150));
+    if(!at(225).includes('past where trials stopped')) throw new Error('225mg not flagged');
+    if(!at(90).includes('below the studied range')) throw new Error('90mg not flagged'); });
+  T('shows the target range',()=>{
+    d.getElementById('c-d1').value='150'; w.protocol();
+    const t=d.getElementById('dosekg').textContent;
+    if(!t.includes('150')||!t.includes('180')) throw new Error('got '+t); });
+  T('target follows the person',()=>{
+    w.who='__them'; d.getElementById('c-wt').value=''; w.protocol();
+    const t=d.getElementById('dosekg').textContent;
+    if(!t.includes('85')||!t.includes('100')) throw new Error('got '+t);
+    w.who='U1'; });
   T('calendar builds',()=>{ const ics=w.buildIcs();
     if(!/BEGIN:VEVENT/.test(ics)) throw new Error('bad ics'); });
 
