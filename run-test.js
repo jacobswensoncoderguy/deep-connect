@@ -192,9 +192,13 @@ setTimeout(()=>{
     if(!t.includes('day before')) throw new Error('no day -1');
     if(!t.includes('11/26')) throw new Error('no dated label');
     if(!d.getElementById('loadhint').textContent.includes('2026-11-26')) throw new Error('wrong start date'); });
-  T('mid-session rounds still there',()=>{
-    if(!d.getElementById('g-peri').textContent.includes('ALA 300 mg'))
-      throw new Error('hourly rounds removed'); });
+  T('no antioxidants during the session',()=>{
+    w.customs=[]; w.hidden=[]; w.RECDATE=null; w.checks={}; w.protocol();
+    const t=d.getElementById('g-peri').textContent;
+    if(t.includes('ALA 300')||t.includes('vitamin C')) throw new Error('still present'); });
+  T('pre-load survives the removal',()=>{
+    if(!d.getElementById('g-load').textContent.includes('ALA 1,200 mg'))
+      throw new Error('pre-load gone too'); });
   T('pre-load has its own evidence',()=>{
     const e=w.EV['l-am']; if(!e||!/Aguirre/.test(e.fig)) throw new Error('missing card'); });
   T('mg per kg shows in the summary',()=>{

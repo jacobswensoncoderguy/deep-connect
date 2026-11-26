@@ -734,8 +734,6 @@ function PERI(){
   ];
   if(bump) a.push({id:'bump',off:bumpOff(),n:'Bump — '+bd+' mg '+veh.toLowerCase(),
     d:'First effects around '+clock(onset(bumpOff(),veh))+'. On the clock, not when it fades.',key:1});
-  for(var i=0;i<4;i++) a.push({id:'ox'+i,off:pk+i*60,n:'ALA 300 mg + vitamin C 250 mg',
-    d:i===0?'First of four. Both clear in under an hour — that is why it repeats.':''});
   a.push({id:'mag',off:null,n:'Magnesium 200 mg',d:'At the first sign of jaw tension, whenever that is.'});
   a.push({id:'thc',off:pk+180,n:'THC — low',d:'Descent only. Three or four second draw.',key:1});
   a.push({id:'oxy1',off:pk+195,n:'Oxytocin — 2 pumps',d:'Slow, aimed high and lateral. Do not sniff hard.'});
@@ -820,11 +818,10 @@ var EV={
  kiss2:{dose:'Second dose roughly two hours after the first.',
   why:'Short plasma half-life means a single dose does not cover a session.',
   tier:'A',fig:'Repeat dosing is mechanism from the half-life, not an outcome finding.'},
- ox0:{dose:'ALA 300 mg + vitamin C 250 mg, hourly, four times from peak.',
-  why:'Both clear in under an hour. A single pre-load is at roughly 2% of its level by the time you peak, so hourly is the only way to hold a level.',
-  tier:'M',fig:'Measured half-lives: ALA 36–81 min after 1,200 mg oral; vitamin C about 30 min at high plasma levels. Those numbers are the whole argument for the schedule.',
-  note:'This exact schedule appears in a human trial of non-racemic 5-MAPB — 250 mg ascorbic acid plus 300 mg ALA hourly from T+3h. But it was background support in a study testing enantiomer ratios, not a tested variable. File it under neuroprotection, not comedown.',
-  src:'https://pmc.ncbi.nlm.nih.gov/articles/PMC3489916/'},
+ ox0:{dose:'Dropped. No longer part of the protocol.',
+  why:'Hourly ALA and vitamin C ran during sessions through Nov 2026 and were removed. The dose was roughly five times below the only amount ever shown to protect anything, by the wrong route, at the wrong time. Vitamin C had no outcome data for this compound at all. Nothing about it could be measured, so it could never be evaluated.',
+  tier:'N',fig:'The schedule appeared in a human 5-MAPB trial as background support, not as a tested variable. That is a protocol someone used, not a finding.',
+  note:'The two-day pre-load replaced it. Same reasoning, right dose, right timing, and one study behind it.'},
  'l-am':{dose:'1,200 mg twice daily on each of the two days before. Separate from the hourly rounds during.',
   why:'Free-radical formation is the proposed driver of serotonergic damage. Lipoic acid regenerates other antioxidants and restores thiols, and it has to be on board before the exposure rather than chasing it.',
   tier:'P',fig:'Aguirre 1999: rats given 100 mg/kg twice daily for two days before MDMA kept 5-HT and transporter density fully intact, where untreated animals lost 40-60%. Scaled by body surface area that is roughly 1,500 mg twice daily for a 200 lb human, and the rats were injected, where oral lipoic acid runs about 30% absorbed. No human outcome trial exists.',
@@ -1363,7 +1360,7 @@ function protocol(){
     ($('c-reta').classList.contains('on')?
       ' Retatrutide is holding the solids back about '+RETA[$('c-v1').value]+
       ' min; the liquid mostly slips past it.':'')+
-    ' Antioxidants start at peak, not before.';
+    '';
   $('hsub').textContent=$('c-date').value+' · '+clock(0)+' start';
   queueSoon(); paintFelt(); paintDose();
   var last=sess.filter(function(s){return s.person===who&&s.date<$('c-date').value;})
@@ -2442,7 +2439,7 @@ $('rec-date').addEventListener('change',function(){ RECDATE=this.value; protocol
 $('shade').onclick=closeSheet;
 
 /* ---------- auto-update ---------- */
-var BUILD='20261125-172051';
+var BUILD='20261125-172432';
 function checkUpdate(){
   fetch('version.json?_='+Date.now(),{cache:'no-store'})
     .then(function(r){ return r.ok?r.json():null; })
